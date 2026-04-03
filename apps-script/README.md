@@ -47,6 +47,6 @@ Agora o projeto pode operar inteiramente dentro do Apps Script:
 
 URL publicada atual:
 
-- [painel](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec)
+- [painel](https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec)
 
 O frontend em `docs/` agora eh o dashboard para GitHub Pages.

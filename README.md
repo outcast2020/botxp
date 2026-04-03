@@ -134,8 +134,8 @@ Depois de subir este repo para `main`, configure no GitHub:
 
 O dashboard vai tentar ler por padrao:
 
-- [status](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=status)
-- [equity](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=equity)
-- [runtime](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=runtime)
+- [status](https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec?view=status)
+- [equity](https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec?view=equity)
+- [runtime](https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec?view=runtime)
 
 Se o Web App estiver privado, o Pages nao consegue ler. Nesse caso, publique o deploy como `Anyone`.
