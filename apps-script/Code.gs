@@ -1,6 +1,7 @@
 var CONFIG = {
   symbol: "BTCUSDT",
   interval: "5m",
+  defaultBridgeSpreadsheetId: "1J2zlPKwbgZCYkLEh6eCN4PLjLChUmyrxDPElwpSVzsQ",
   marketDataBaseUrls: [
     "https://data-api.binance.vision",
     "https://api-gcp.binance.com",
@@ -855,12 +856,14 @@ function setupBridgeSpreadsheet(spreadsheetName) {
 }
 
 function configureBridgeSpreadsheet(spreadsheetId) {
-  if (!spreadsheetId) {
+  var targetSpreadsheetId = spreadsheetId || CONFIG.defaultBridgeSpreadsheetId;
+
+  if (!targetSpreadsheetId) {
     throw new Error("Spreadsheet ID is required.");
   }
 
-  storeSpreadsheetId(spreadsheetId);
-  var ss = SpreadsheetApp.openById(spreadsheetId);
+  storeSpreadsheetId(targetSpreadsheetId);
+  var ss = SpreadsheetApp.openById(targetSpreadsheetId);
   ensureBridgeSpreadsheetStructure_(ss);
   ensureBridgeSyncToken_();
   return {
@@ -868,6 +871,24 @@ function configureBridgeSpreadsheet(spreadsheetId) {
     spreadsheetUrl: ss.getUrl(),
     bridgeSyncToken: getBridgeSyncToken()
   };
+}
+
+function configureDefaultBridgeSpreadsheet() {
+  return configureBridgeSpreadsheet(CONFIG.defaultBridgeSpreadsheetId);
+}
+
+function getBridgeSetupInfo() {
+  return {
+    spreadsheetId: getSpreadsheetId() || CONFIG.defaultBridgeSpreadsheetId,
+    spreadsheetUrl: getSpreadsheetUrl(),
+    bridgeSyncToken: getBridgeSyncToken()
+  };
+}
+
+function logBridgeSetupInfo() {
+  var info = getBridgeSetupInfo();
+  Logger.log(JSON.stringify(info, null, 2));
+  return info;
 }
 
 function ensureSpreadsheetStructure_(ss) {
