@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL =
-  "https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec";
+  "https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec";
 const STORAGE_KEY = "botxp-apps-script-base-url";
 
 const $ = (id) => document.getElementById(id);

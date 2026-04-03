@@ -99,7 +99,7 @@ function normalizeSignal(payload) {
     throw new Error(`Market invalido. Esperado ${config.market}.`);
   }
 
-  if (signal.passphrase !== config.tvPassphrase) {
+  if (signal.passphrase !== config.signalPassphrase) {
     throw new Error("Passphrase invalida.");
   }
 

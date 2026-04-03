@@ -1,61 +1,39 @@
 # Bridge Node.js
 
-Bridge minima para receber webhooks do TradingView, decidir risco, executar `DOGEUSDT` em `Binance USD-SM Futures` e sincronizar snapshots com o Web App do Apps Script.
+Bridge mínima para:
 
-## O que esta versao faz
+- receber sinais por webhook
+- validar risco
+- executar `DOGEUSDT` em `Binance USD-SM Futures`
+- sincronizar snapshots com o Web App do Apps Script
+
+## O que esta versão faz
 
 - separa `modo teste` e `modo trading`
 - recebe `LONG_ENTRY`, `SHORT_ENTRY` e `FLAT_EXIT`
 - valida `passphrase`, idade do sinal e duplicatas por `nonce`
 - opera em `One-way + Isolated`
-- consulta a Polymarket para um proxy macro de stress no mercado de oil
-- pode consultar a API da DeepSeek para gerar uma politica de risco em JSON
-- suporta `dry-run` por padrao
-- registra estado e logs locais em `bridge/data`
-- sincroniza `status` e `equity` com o Apps Script, se configurado
+- consulta Polymarket como proxy macro de stress
+- pode consultar DeepSeek para gerar policy JSON
+- suporta `dry-run` por padrão
+- grava estado e logs locais em `bridge/data`
+- sincroniza `status`, `equity`, `runtime`, `macro`, `policy`, `trades` e `executions`
 
-## Pastas
+## Modos
 
-```text
-bridge/
-  .env.example
-  README.md
-  data/
-  src/
-    apps-script-sync.js
-    backtest.js
-    binance-futures-client.js
-    config.js
-    historical-market-data.js
-    indicators.js
-    risk-engine.js
-    server.js
-    store.js
-    utils.js
-```
-
-## Modo teste
+### Backtest
 
 1. Copie `.env.example` para `.env`.
-2. Ajuste `BACKTEST_START` e `BACKTEST_END` se quiser um recorte especifico.
+2. Ajuste o recorte histórico.
 3. Rode `npm run bridge:backtest`.
 
-Saidas esperadas em `bridge/data`:
-
-- `backtest-report.json`
-- `backtest-trades.json`
-- `backtest-equity.json`
-- `backtest-training-samples.jsonl`
-
-O arquivo `training-samples.jsonl` serve como base para comparar features, rotular janelas e alimentar a evolucao do algoritmo.
-
-## Modo trading
+### Trading
 
 1. Copie `.env.example` para `.env`.
-2. Ajuste ao menos `TV_PASSPHRASE`.
+2. Defina `SIGNAL_PASSPHRASE`.
 3. Deixe `DRY_RUN=true` no primeiro teste.
 4. Rode `npm run bridge:trade`.
-5. Aponte o webhook do TradingView para `http://SEU_HOST:8787/webhook`.
+5. Aponte o emissor de sinais para `http://SEU_HOST:8787/webhook`.
 
 ## Endpoints locais
 
@@ -65,48 +43,14 @@ O arquivo `training-samples.jsonl` serve como base para comparar features, rotul
 - `GET /policy`
 - `POST /webhook`
 
-## Polymarket + DeepSeek
+## Segurança
 
-Para habilitar a camada de politica de risco:
+Para live:
 
-- deixe `POLYMARKET_ENABLED=true`
-- configure `DEEPSEEK_ENABLED=true`
-- configure `DEEPSEEK_API_KEY`
-- opcionalmente ajuste `DEEPSEEK_MODEL=deepseek-chat`
+- `BINANCE_API_KEY`
+- `BINANCE_API_SECRET`
+- `DRY_RUN=false`
+- chave sem saque
+- segredo fora do Git
 
-Papel de cada camada:
-
-- `Polymarket`: proxy de stress macro via oil
-- `DeepSeek`: converte contexto em politica JSON
-- `bridge`: aplica firewall de risco e continua sendo a unica camada que pode mandar ordem
-
-A politica do DeepSeek pode limitar:
-
-- `allowed_side`
-- `leverage_cap`
-- `no_trade`
-- `stop_profile`
-- `session_filter`
-
-## Virando para live
-
-Para mandar ordens reais:
-
-- configure `BINANCE_API_KEY`
-- configure `BINANCE_API_SECRET`
-- ajuste `DRY_RUN=false`
-- confirme que a chave tem permissao de `USD-SM Futures`
-
-## Apps Script
-
-Se voce preencher `APPS_SCRIPT_SYNC_URL`, a bridge envia:
-
-- `status`
-- `equity`
-- `runtime`
-- `macro`
-- `policy`
-- `executions`
-- `trades`
-
-para o `doPost()` do Web App. O `Code.gs` deste projeto vai receber esse payload.
+Detalhamento em [SECURITY_KEYS_REVIEW.md](C:\Users\Carlos\Documents\ai BOT\small exp\paper-trading-lab\SECURITY_KEYS_REVIEW.md).

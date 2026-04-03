@@ -1,33 +1,32 @@
-# Apps Script setup
+# Apps Script Setup
 
-## O que este backend faz agora
+## O que este backend faz
 
 - cria e configura a planilha do monitor
-- guarda `status`, `equity` e `runtime` em Script Properties
-- recebe sync da bridge Node.js via `doPost()`
+- recebe sync da bridge via `doPost()`
+- guarda `status`, `equity`, `runtime`, `macro` e `policy`
 - expõe:
   - `?view=status`
   - `?view=equity`
   - `?view=runtime`
+  - `?view=macro`
+  - `?view=policy`
   - `?view=config`
-- serve o dashboard HTML do proprio Apps Script na URL principal
+- serve o dashboard HTML do próprio Apps Script na raiz
 
 ## Passo a passo
 
-1. Entre na pasta raiz `paper-trading-lab`.
-2. Rode `npm install`.
-3. Rode `npm run clasp:login`.
-4. Crie um Script standalone no editor do Apps Script.
-5. Preencha o `scriptId` em `.clasp.json`.
-6. Rode `npm run clasp:push`.
-7. No editor do Apps Script, execute `configureDefaultBridgeSpreadsheet()`.
-8. Copie o `bridgeSyncToken` retornado.
-9. Faca deploy como `Web app`.
-10. Se quiser usar o painel do GitHub Pages, publique o deploy com acesso de leitura `Anyone`.
+1. Rode `npm install`.
+2. Rode `npm run clasp:login`.
+3. Crie um projeto standalone no Apps Script.
+4. Preencha o `scriptId` em `.clasp.json`.
+5. Rode `npm run clasp:push`.
+6. No editor do Apps Script, execute `configureDefaultBridgeSpreadsheet()`.
+7. Rode `getBridgeSyncToken()`.
+8. Faça deploy como `Web app`.
+9. Para o GitHub Pages ler o painel, publique com acesso `Anyone`.
 
-Opcionalmente, voce pode tentar `npm run clasp:create`, mas o caminho mais simples e menos sujeito a erro eh preencher o `scriptId` manualmente.
-
-## Funcoes principais
+## Funções principais
 
 - `setupBridgeSpreadsheet()`
 - `configureDefaultBridgeSpreadsheet()`
@@ -35,18 +34,12 @@ Opcionalmente, voce pode tentar `npm run clasp:create`, mas o caminho mais simpl
 - `getBridgeSyncToken()`
 - `setBridgeSyncToken(token)`
 
-## Integracao com o frontend
+## URL publicada atual
 
-Agora o projeto pode operar inteiramente dentro do Apps Script:
+- [painel](https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec)
+- [status](https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec?view=status)
+- [runtime](https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec?view=runtime)
+- [macro](https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec?view=macro)
+- [policy](https://script.google.com/macros/s/AKfycbxayvxYzLCYBiMxs60A4AvIyreE2ouCJcaMUslIH0xwWA-1kZVLQFUoKv8VDHBd7x3bwA/exec?view=policy)
 
-- a URL principal do Web App abre `Dashboard.html`
-- `?view=status` retorna JSON de status
-- `?view=equity` retorna JSON de equity
-- `?view=runtime` retorna JSON de runtime da bridge
-- `?view=health` retorna um healthcheck simples
-
-URL publicada atual:
-
-- [painel](https://script.google.com/macros/s/AKfycbwgWtgshOLOd9BYQV2yKlpLzf3lATQK827EMihoxcXQrEAKDGTdpCTWeI_M7y2rQw1Wqg/exec)
-
-O frontend em `docs/` agora eh o dashboard para GitHub Pages.
+O frontend em `docs/` continua sendo a versão para GitHub Pages.

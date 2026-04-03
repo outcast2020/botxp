@@ -72,7 +72,7 @@ const config = {
   marginMode: (env.MARGIN_MODE || "ISOLATED").toUpperCase(),
   positionMode: (env.POSITION_MODE || "ONE_WAY").toUpperCase(),
 
-  tvPassphrase: env.TV_PASSPHRASE || "",
+  signalPassphrase: env.SIGNAL_PASSPHRASE || env.TV_PASSPHRASE || "",
   maxSignalAgeMs: asNumber(env.MAX_SIGNAL_AGE_MS, 120000),
   maxEntriesPerDay: asNumber(env.MAX_ENTRIES_PER_DAY, 6),
   dailyStopLossUsdt: asNumber(env.DAILY_STOP_LOSS_USDT, 1.5),
@@ -165,6 +165,10 @@ const config = {
     trailAtrRisk: asNumber(env.TRAIL_ATR_RISK, 0.75)
   }
 };
+
+if (!config.dryRun && (!config.binanceApiKey || !config.binanceApiSecret)) {
+  throw new Error("Modo live exige BINANCE_API_KEY e BINANCE_API_SECRET.");
+}
 
 module.exports = {
   config
