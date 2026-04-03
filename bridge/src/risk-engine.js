@@ -31,7 +31,7 @@ function evaluateSignal(runtime, signal, config, context = {}) {
   }
 
   if (signal.action !== "FLAT_EXIT") {
-    if (config.deepseek?.required) {
+    if (config.policy?.required) {
       if (!policy || policy.enabled === false) {
         return { ok: false, ignored: true, reason: "policy_missing" };
       }

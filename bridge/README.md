@@ -1,21 +1,21 @@
 # Bridge Node.js
 
-Bridge mínima para:
+Bridge minima para:
 
 - receber sinais por webhook
 - validar risco
 - executar `DOGEUSDT` em `Binance USD-SM Futures`
 - sincronizar snapshots com o Web App do Apps Script
 
-## O que esta versão faz
+## O que esta versao faz
 
 - separa `modo teste` e `modo trading`
 - recebe `LONG_ENTRY`, `SHORT_ENTRY` e `FLAT_EXIT`
 - valida `passphrase`, idade do sinal e duplicatas por `nonce`
 - opera em `One-way + Isolated`
 - consulta Polymarket como proxy macro de stress
-- pode consultar DeepSeek para gerar policy JSON
-- suporta `dry-run` por padrão
+- pode consultar OpenAI para gerar policy JSON
+- suporta `dry-run` por padrao
 - grava estado e logs locais em `bridge/data`
 - sincroniza `status`, `equity`, `runtime`, `macro`, `policy`, `trades` e `executions`
 
@@ -24,7 +24,7 @@ Bridge mínima para:
 ### Backtest
 
 1. Copie `.env.example` para `.env`.
-2. Ajuste o recorte histórico.
+2. Ajuste o recorte historico.
 3. Rode `npm run bridge:backtest`.
 
 ### Trading
@@ -43,7 +43,7 @@ Bridge mínima para:
 - `GET /policy`
 - `POST /webhook`
 
-## Segurança
+## Seguranca
 
 Para live:
 

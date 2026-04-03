@@ -60,11 +60,12 @@ function createRuntime(config) {
       }
     },
     policy: {
-      enabled: Boolean(config.deepseek?.enabled && config.deepseek?.apiKey),
+      enabled: Boolean(config.policy?.enabled && config.policy?.apiKey),
       source: "bootstrap",
-      required: Boolean(config.deepseek?.required),
+      provider: config.policy?.provider || "disabled",
+      required: Boolean(config.policy?.required),
       fetchedAt: null,
-      stale: Boolean(config.deepseek?.enabled && config.deepseek?.required),
+      stale: Boolean(config.policy?.enabled && config.policy?.required),
       riskMode: "NEUTRAL",
       allowedSide: "BOTH",
       leverageCap: config.defaultLeverage,
@@ -75,7 +76,7 @@ function createRuntime(config) {
       sessionEndHour: 24,
       confidence: 0,
       noTrade: false,
-      notes: "deepseek_disabled"
+      notes: "policy_disabled"
     },
     position: {
       side: "FLAT",

@@ -1,8 +1,8 @@
-# Revisão de Segurança para Chaves de API
+# Revisao de Seguranca para Chaves de API
 
-## Situação atual
+## Situacao atual
 
-O projeto já separa bem:
+O projeto ja separa bem:
 
 - frontend publico
 - Apps Script
@@ -13,11 +13,11 @@ Mas ainda existe um risco operacional claro:
 
 - qualquer chave colada em chat, email, screenshot ou arquivo versionado deve ser tratada como potencialmente comprometida
 
-## Regras de segurança recomendadas
+## Regras de seguranca recomendadas
 
-### 1. Rotacione credenciais já expostas
+### 1. Rotacione credenciais ja expostas
 
-Se uma `API key`, `secret`, `passphrase` ou token foi compartilhado fora do cofre local, a postura correta é:
+Se uma `API key`, `secret`, `passphrase` ou token foi compartilhado fora do cofre local, a postura correta e:
 
 - revogar
 - criar novo par
@@ -33,7 +33,7 @@ Se uma `API key`, `secret`, `passphrase` ou token foi compartilhado fora do cofr
 - `localStorage`
 - query string
 
-### 3. Separe chaves por função
+### 3. Separe chaves por funcao
 
 Use pelo menos:
 
@@ -42,36 +42,36 @@ Use pelo menos:
 
 Se a conta permitir, use subconta separada para live.
 
-### 4. Restringa permissões
+### 4. Restrinja permissoes
 
 Na chave de live:
 
-- habilite apenas o necessário para futures/trade
+- habilite apenas o necessario para futures/trade
 - desabilite saque
-- desabilite permissões que não serão usadas
-- aplique allowlist de IP sempre que possível
+- desabilite permissoes que nao serao usadas
+- aplique allowlist de IP sempre que possivel
 
 ### 5. Nunca rode live sem guard-rails
 
-Regras mínimas:
+Regras minimas:
 
-- `DRY_RUN=false` só com `BINANCE_API_KEY` e `BINANCE_API_SECRET`
-- `SIGNAL_PASSPHRASE` obrigatório para qualquer emissor externo
+- `DRY_RUN=false` so com `BINANCE_API_KEY` e `BINANCE_API_SECRET`
+- `SIGNAL_PASSPHRASE` obrigatorio para qualquer emissor externo
 - `One-way + Isolated`
-- leverage cap baixo no início
-- stop diário ativo
+- leverage cap baixo no inicio
+- stop diario ativo
 - limite de perdas consecutivas
 
-### 6. Separe segredo de política e segredo de execução
+### 6. Separe segredo de politica e segredo de execucao
 
 Mantenha independentes:
 
 - credenciais Binance
 - token do Apps Script
-- chave DeepSeek
+- chave OpenAI
 - segredos de webhook
 
-Comprometimento de um não deve derrubar todos os outros.
+Comprometimento de um nao deve derrubar todos os outros.
 
 ### 7. Logue sem vazar
 
@@ -99,11 +99,11 @@ Nunca logar:
 - `DRY_RUN` testado
 - `APPS_SCRIPT_SYNC_TOKEN` validado
 - `SIGNAL_PASSPHRASE` forte e exclusivo
-- plano de rotação documentado
+- plano de rotacao documentado
 
 ## Estado recomendado do projeto
 
 - frontend: sem segredos
 - Apps Script: sem segredos de exchange
-- bridge: unico lugar com segredo de exchange
+- bridge: unico lugar com segredo de exchange e de politica
 - host da bridge: controle de acesso e backup do `.env`

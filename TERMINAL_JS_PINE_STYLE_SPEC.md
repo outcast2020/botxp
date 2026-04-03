@@ -48,7 +48,7 @@ Polymarket
   -> macro adapter
   -> strategy context
 
-DeepSeek
+OpenAI
   -> policy engine
   -> risk context
 ```

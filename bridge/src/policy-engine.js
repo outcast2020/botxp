@@ -15,11 +15,12 @@ function normalizeEnum(value, allowed, fallback) {
   return allowed.has(normalized) ? normalized : fallback;
 }
 
-function buildDisabledPolicy(config, notes = "deepseek_disabled") {
+function buildDisabledPolicy(config, notes = "policy_disabled") {
   return {
     enabled: false,
     source: "disabled",
-    required: Boolean(config.deepseek.required),
+    provider: config.policy?.provider || "disabled",
+    required: Boolean(config.policy?.required),
     fetchedAt: nowIso(),
     stale: false,
     riskMode: "NEUTRAL",
@@ -37,15 +38,16 @@ function buildDisabledPolicy(config, notes = "deepseek_disabled") {
 }
 
 function buildFallbackPolicy(config, previous, errorMessage) {
-  const base = previous || buildDisabledPolicy(config, "deepseek_fallback");
+  const base = previous || buildDisabledPolicy(config, "policy_fallback");
   return {
     ...base,
-    enabled: Boolean(config.deepseek.enabled && config.deepseek.apiKey),
+    enabled: Boolean(config.policy?.enabled && config.policy?.apiKey),
     source: "fallback",
-    required: Boolean(config.deepseek.required),
+    provider: config.policy?.provider || "disabled",
+    required: Boolean(config.policy?.required),
     stale: true,
     fetchedAt: base.fetchedAt || nowIso(),
-    notes: errorMessage || base.notes || "deepseek_policy_unavailable"
+    notes: errorMessage || base.notes || "policy_unavailable"
   };
 }
 
@@ -61,8 +63,9 @@ function normalizePolicy(rawPolicy, config) {
 
   return {
     enabled: true,
-    source: "deepseek",
-    required: Boolean(config.deepseek.required),
+    source: config.policy?.provider || "policy",
+    provider: config.policy?.provider || "policy",
+    required: Boolean(config.policy?.required),
     fetchedAt: nowIso(),
     stale: false,
     riskMode,
@@ -142,7 +145,7 @@ function buildMessages(context, config) {
       role: "system",
       content:
         "You are a geopolitical risk policy engine for a DOGEUSDT leveraged scalper. " +
-        "You must return only valid json. " +
+        "Return only valid json. " +
         "Use only the provided json context. " +
         "Treat Polymarket oil as a macro stress proxy, not as a direct DOGE price predictor. " +
         "Be conservative for small accounts and leveraged trading. " +
@@ -158,10 +161,10 @@ function buildMessages(context, config) {
   ];
 }
 
-class DeepSeekPolicyEngine {
+class PolicyEngine {
   constructor(config) {
     this.config = config;
-    this.policyConfig = config.deepseek;
+    this.policyConfig = config.policy || { provider: "disabled", enabled: false };
     this.cache = {
       policy: null,
       fetchedAtMs: 0
@@ -169,16 +172,20 @@ class DeepSeekPolicyEngine {
   }
 
   isEnabled() {
-    return Boolean(this.policyConfig.enabled && this.policyConfig.apiKey);
+    return Boolean(
+      this.policyConfig.provider !== "disabled" &&
+      this.policyConfig.enabled &&
+      this.policyConfig.apiKey
+    );
   }
 
   async fetchPolicy(context = {}, options = {}) {
-    if (!this.policyConfig.enabled) {
-      return buildDisabledPolicy(this.config, "deepseek_disabled");
+    if (!this.policyConfig.enabled || this.policyConfig.provider === "disabled") {
+      return buildDisabledPolicy(this.config, "policy_disabled");
     }
 
     if (!this.policyConfig.apiKey) {
-      return buildDisabledPolicy(this.config, "deepseek_api_key_missing");
+      return buildDisabledPolicy(this.config, `${this.policyConfig.provider}_api_key_missing`);
     }
 
     const force = Boolean(options.force);
@@ -200,7 +207,7 @@ class DeepSeekPolicyEngine {
         body: JSON.stringify({
           model: this.policyConfig.model,
           temperature: this.policyConfig.temperature,
-          max_tokens: this.policyConfig.maxTokens,
+          max_completion_tokens: this.policyConfig.maxTokens,
           response_format: { type: "json_object" },
           messages: buildMessages(context, this.config)
         }),
@@ -210,12 +217,12 @@ class DeepSeekPolicyEngine {
       const text = await response.text();
       const payload = text ? JSON.parse(text) : {};
       if (!response.ok) {
-        throw new Error(`DeepSeek HTTP ${response.status}: ${JSON.stringify(payload)}`);
+        throw new Error(`${this.policyConfig.provider} HTTP ${response.status}: ${JSON.stringify(payload)}`);
       }
 
       const content = payload?.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error("DeepSeek returned empty content");
+        throw new Error(`${this.policyConfig.provider} returned empty content`);
       }
 
       const parsed = JSON.parse(content);
@@ -243,7 +250,7 @@ class DeepSeekPolicyEngine {
 }
 
 module.exports = {
-  DeepSeekPolicyEngine,
+  PolicyEngine,
   buildDisabledPolicy,
   buildFallbackPolicy
 };

@@ -51,6 +51,58 @@ const envPath = path.join(bridgeDir, ".env");
 const envFromFile = loadEnvFile(envPath);
 const env = { ...envFromFile, ...process.env };
 
+const openaiConfig = {
+  enabled: asBoolean(env.OPENAI_ENABLED, Boolean(env.OPENAI_API_KEY)),
+  required: asBoolean(env.OPENAI_REQUIRED, false),
+  apiKey: env.OPENAI_API_KEY || "",
+  baseUrl: env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+  model: env.OPENAI_MODEL || "gpt-5-mini",
+  refreshMs: asNumber(env.OPENAI_REFRESH_MS, 300000),
+  staleMs: asNumber(env.OPENAI_STALE_MS, 900000),
+  timeoutMs: asNumber(env.OPENAI_TIMEOUT_MS, 6000),
+  maxTokens: asNumber(env.OPENAI_MAX_TOKENS, 400),
+  temperature: asNumber(env.OPENAI_TEMPERATURE, 0.1)
+};
+
+const deepseekConfig = {
+  enabled: asBoolean(env.DEEPSEEK_ENABLED, Boolean(env.DEEPSEEK_API_KEY)),
+  required: asBoolean(env.DEEPSEEK_REQUIRED, false),
+  apiKey: env.DEEPSEEK_API_KEY || "",
+  baseUrl: env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+  model: env.DEEPSEEK_MODEL || "deepseek-chat",
+  refreshMs: asNumber(env.DEEPSEEK_REFRESH_MS, 300000),
+  staleMs: asNumber(env.DEEPSEEK_STALE_MS, 900000),
+  timeoutMs: asNumber(env.DEEPSEEK_TIMEOUT_MS, 6000),
+  maxTokens: asNumber(env.DEEPSEEK_MAX_TOKENS, 400),
+  temperature: asNumber(env.DEEPSEEK_TEMPERATURE, 0.1)
+};
+
+let policyProvider = String(env.POLICY_PROVIDER || "").trim().toLowerCase();
+if (!policyProvider) {
+  if (openaiConfig.enabled || openaiConfig.apiKey) policyProvider = "openai";
+  else if (deepseekConfig.enabled || deepseekConfig.apiKey) policyProvider = "deepseek";
+  else policyProvider = "disabled";
+}
+
+const selectedPolicyConfig =
+  policyProvider === "openai"
+    ? { provider: "openai", ...openaiConfig }
+    : policyProvider === "deepseek"
+    ? { provider: "deepseek", ...deepseekConfig }
+    : {
+        provider: "disabled",
+        enabled: false,
+        required: false,
+        apiKey: "",
+        baseUrl: "",
+        model: "",
+        refreshMs: 300000,
+        staleMs: 900000,
+        timeoutMs: 6000,
+        maxTokens: 400,
+        temperature: 0.1
+      };
+
 const config = {
   rootDir,
   bridgeDir,
@@ -100,18 +152,9 @@ const config = {
     staleMs: asNumber(env.POLYMARKET_STALE_MS, 90000),
     hardBlockScore: asNumber(env.POLYMARKET_HARD_BLOCK_SCORE, 0.9)
   },
-  deepseek: {
-    enabled: asBoolean(env.DEEPSEEK_ENABLED, false),
-    required: asBoolean(env.DEEPSEEK_REQUIRED, false),
-    apiKey: env.DEEPSEEK_API_KEY || "",
-    baseUrl: env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-    model: env.DEEPSEEK_MODEL || "deepseek-chat",
-    refreshMs: asNumber(env.DEEPSEEK_REFRESH_MS, 300000),
-    staleMs: asNumber(env.DEEPSEEK_STALE_MS, 900000),
-    timeoutMs: asNumber(env.DEEPSEEK_TIMEOUT_MS, 6000),
-    maxTokens: asNumber(env.DEEPSEEK_MAX_TOKENS, 400),
-    temperature: asNumber(env.DEEPSEEK_TEMPERATURE, 0.1)
-  },
+  openai: openaiConfig,
+  deepseek: deepseekConfig,
+  policy: selectedPolicyConfig,
 
   backtestStart: env.BACKTEST_START || "",
   backtestEnd: env.BACKTEST_END || "",

@@ -1,7 +1,7 @@
 const http = require("http");
 const { config } = require("./config");
 const { BinanceApiError, BinanceFuturesClient } = require("./binance-futures-client");
-const { DeepSeekPolicyEngine, buildDisabledPolicy } = require("./deepseek-policy-engine");
+const { PolicyEngine, buildDisabledPolicy } = require("./policy-engine");
 const { PolymarketOilAdapter } = require("./polymarket-oil-adapter");
 const {
   buildEquityPayload,
@@ -28,7 +28,7 @@ const {
 const runtime = loadRuntime(config);
 const client = config.dryRun ? null : new BinanceFuturesClient(config);
 const oilAdapter = new PolymarketOilAdapter(config);
-const policyEngine = new DeepSeekPolicyEngine(config);
+const policyEngine = new PolicyEngine(config);
 
 let symbolRules = {
   symbol: config.symbol,
@@ -37,6 +37,27 @@ let symbolRules = {
   tickSize: 0.0001,
   minNotional: 5
 };
+
+function defaultPolicyNotes() {
+  if (config.policy.provider === "disabled") return "policy_disabled";
+  if (!config.policy.apiKey) return `${config.policy.provider}_api_key_missing`;
+  return `${config.policy.provider}_disabled`;
+}
+
+function currentPolicySnapshot() {
+  const fallback = buildDisabledPolicy(config, defaultPolicyNotes());
+  const candidate = runtime.policy || fallback;
+
+  if (!policyEngine.isEnabled()) {
+    return fallback;
+  }
+
+  if (candidate.provider && candidate.provider !== config.policy.provider) {
+    return fallback;
+  }
+
+  return candidate;
+}
 
 function json(res, statusCode, payload) {
   applyCorsHeaders(res);
@@ -180,12 +201,13 @@ async function bootstrap() {
       }, { force: true });
       saveRuntime(config, runtime);
     } catch (error) {
-      runtime.lastError = `Falha ao carregar policy DeepSeek: ${error.message}`;
+      runtime.lastError = `Falha ao carregar policy ${config.policy.provider}: ${error.message}`;
       runtime.policy = policyEngine.fallback(runtime.policy, error.message);
       saveRuntime(config, runtime);
     }
   } else {
-    runtime.policy = runtime.policy || buildDisabledPolicy(config);
+    runtime.policy = currentPolicySnapshot();
+    saveRuntime(config, runtime);
   }
 }
 
@@ -210,7 +232,7 @@ function currentRuntimeState() {
         oilMarkets: []
       }
     },
-    policy: runtime.policy || buildDisabledPolicy(config)
+    policy: currentPolicySnapshot()
   };
 }
 
@@ -580,7 +602,7 @@ async function processLive(signal) {
 async function processSignal(signal) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
   runtime.macro = runtime.macro || {};
-  runtime.policy = runtime.policy || buildDisabledPolicy(config);
+  runtime.policy = currentPolicySnapshot();
 
   let macroSnapshot = runtime.macro.oil || null;
   if (oilAdapter.isEnabled()) {
@@ -594,7 +616,7 @@ async function processSignal(signal) {
     }
   }
 
-  let policySnapshot = runtime.policy || buildDisabledPolicy(config);
+  let policySnapshot = currentPolicySnapshot();
   if (policyEngine.isEnabled()) {
     try {
       policySnapshot = await policyEngine.fetchPolicy({
@@ -606,7 +628,7 @@ async function processSignal(signal) {
       });
       runtime.policy = policySnapshot;
     } catch (error) {
-      runtime.lastError = `Falha DeepSeek policy: ${error.message}`;
+      runtime.lastError = `Falha policy ${config.policy.provider}: ${error.message}`;
       policySnapshot = policyEngine.fallback(runtime.policy, error.message);
       runtime.policy = policySnapshot;
     }
@@ -754,12 +776,14 @@ const server = http.createServer(async (req, res) => {
             }
           });
         } catch (error) {
-          runtime.lastError = `Falha DeepSeek policy: ${error.message}`;
+          runtime.lastError = `Falha policy ${config.policy.provider}: ${error.message}`;
           runtime.policy = policyEngine.fallback(runtime.policy, error.message);
           saveRuntime(config, runtime);
         }
+      } else {
+        runtime.policy = currentPolicySnapshot();
       }
-      return json(res, 200, runtime.policy || buildDisabledPolicy(config));
+      return json(res, 200, currentPolicySnapshot());
     }
 
     if (req.method === "POST" && url.pathname === "/webhook") {
