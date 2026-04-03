@@ -8,6 +8,7 @@
     "bridge:trade": "node ./bridge/src/server.js",
     "bridge:backtest": "node ./bridge/src/backtest.js",
     "bridge:check": "node --check ./bridge/src/config.js && node --check ./bridge/src/utils.js && node --check ./bridge/src/store.js && node --check ./bridge/src/binance-futures-client.js && node --check ./bridge/src/polymarket-oil-adapter.js && node --check ./bridge/src/deepseek-policy-engine.js && node --check ./bridge/src/risk-engine.js && node --check ./bridge/src/apps-script-sync.js && node --check ./bridge/src/indicators.js && node --check ./bridge/src/historical-market-data.js && node --check ./bridge/src/backtest.js && node --check ./bridge/src/server.js",
+    "terminal:start": "node ./terminal/server.js",
     "clasp:login": "npx @google/clasp login",
     "clasp:create": "npx @google/clasp create --type standalone --title \"Paper Trading Lab\" --rootDir ./apps-script",
     "clasp:status": "npx @google/clasp status",

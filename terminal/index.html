@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOTXP Terminal</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Terminal Próprio</p>
+          <h1>Chart, editor e runner local para sinais em JS</h1>
+          <p class="lede">
+            Este terminal lê mercado direto da Binance, executa sua estratégia em JavaScript com API estilo Pine e envia sinais para a bridge local só quando você quiser.
+          </p>
+        </div>
+        <div class="meta-card">
+          <div class="status-line">
+            <span id="bridgeDot" class="dot"></span>
+            <span id="bridgeStatus">Checando bridge</span>
+          </div>
+          <div><span class="meta-label">Mercado</span><br><strong id="marketMeta">DOGEUSDT / 5m + 4h</strong></div>
+          <div><span class="meta-label">Último candle</span><br><strong id="lastBarTime">-</strong></div>
+          <div><span class="meta-label">Último sinal</span><br><strong id="lastSignalMeta">-</strong></div>
+        </div>
+      </section>
+
+      <section class="toolbar panel">
+        <div class="toolbar-grid">
+          <label>
+            Bridge URL
+            <input id="bridgeUrlInput" type="url" placeholder="http://localhost:8787">
+          </label>
+          <label>
+            Passphrase
+            <input id="passphraseInput" type="password" placeholder="SIGNAL_PASSPHRASE">
+          </label>
+          <label>
+            Symbol
+            <input id="symbolInput" type="text" value="DOGEUSDT">
+          </label>
+          <label>
+            Timeframe
+            <input id="timeframeInput" type="text" value="5m">
+          </label>
+          <label>
+            HTF
+            <input id="htfInput" type="text" value="4h">
+          </label>
+          <label>
+            Leverage
+            <input id="leverageInput" type="number" min="1" max="5" step="1" value="3">
+          </label>
+          <label>
+            Budget USDT
+            <input id="budgetInput" type="number" min="1" step="0.1" value="7">
+          </label>
+          <label class="checkbox-label">
+            <input id="autoSendInput" type="checkbox">
+            Auto-enviar novos sinais
+          </label>
+        </div>
+        <div class="toolbar-actions">
+          <button id="saveSettingsBtn" class="button secondary">Salvar</button>
+          <button id="reloadDataBtn" class="button secondary">Recarregar dados</button>
+          <button id="runStrategyBtn" class="button primary">Rodar estratégia</button>
+          <button id="sendSignalBtn" class="button primary">Enviar último sinal</button>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article class="panel metric">
+          <span class="meta-label">Policy</span>
+          <strong id="policyMode">NEUTRAL</strong>
+          <small id="policyAllowed">Allowed BOTH</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Macro</span>
+          <strong id="macroRegime">UNKNOWN</strong>
+          <small id="macroStress">Stress 0.0000</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Último preço</span>
+          <strong id="lastPrice">0</strong>
+          <small id="atrMeta">ATR 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Sinais</span>
+          <strong id="signalCount">0</strong>
+          <small id="markerCount">0 marcadores</small>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Chart</h2>
+            <span id="chartMeta" class="meta-label">aguardando dados</span>
+          </div>
+          <div id="chart" class="chart"></div>
+        </article>
+
+        <article class="panel side-panel">
+          <div class="panel-head">
+            <h2>Runner</h2>
+            <span class="meta-label">estado local</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><th>Strategy ID</th><td id="strategyId">-</td></tr>
+                <tr><th>Última ação</th><td id="latestAction">-</td></tr>
+                <tr><th>Nonce</th><td id="latestNonce">-</td></tr>
+                <tr><th>Reason</th><td id="latestReason">-</td></tr>
+                <tr><th>HTF trend</th><td id="latestHtfTrend">-</td></tr>
+                <tr><th>RSI</th><td id="latestRsi">0</td></tr>
+                <tr><th>ATR %</th><td id="latestAtrPct">0%</td></tr>
+                <tr><th>Último envio</th><td id="lastSendStatus">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="layout editor-layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Editor</h2>
+            <span class="meta-label">JS estilo Pine</span>
+          </div>
+          <div id="editor" class="editor"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Log</h2>
+            <span class="meta-label">compilação, mercado e webhook</span>
+          </div>
+          <pre id="logOutput" class="log-output"></pre>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -39,10 +39,17 @@ let symbolRules = {
 };
 
 function json(res, statusCode, payload) {
+  applyCorsHeaders(res);
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8"
   });
   res.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function applyCorsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 function parseBody(req) {
@@ -703,6 +710,13 @@ async function processSignal(signal) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+    if (req.method === "OPTIONS") {
+      applyCorsHeaders(res);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     if (req.method === "GET" && url.pathname === "/health") {
       return json(res, 200, {

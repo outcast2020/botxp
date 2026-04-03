@@ -1,4 +1,4 @@
-export default defineStrategy({
+defineStrategy({
   id: "doge_mtf_scalper_v1",
   symbol: "DOGEUSDT",
   timeframe: "5m",
@@ -56,6 +56,10 @@ export default defineStrategy({
       strategy.entry("L", "LONG", {
         leverage: Math.min(ctx.input.leverage, ctx.policy?.leverageCap || ctx.input.leverage),
         budgetUsdt: ctx.input.budgetUsdt,
+        rsi: rsi.last(),
+        atrPct: (atr.last() / close.last()) * 100,
+        htfTrend: longBias ? "BULL" : "NEUTRAL",
+        htfRsi: ta.rsi(htfClose, 14).last(),
         reason: "mtf_long_pullback"
       });
     }
@@ -64,6 +68,10 @@ export default defineStrategy({
       strategy.entry("S", "SHORT", {
         leverage: Math.min(ctx.input.leverage, ctx.policy?.leverageCap || ctx.input.leverage),
         budgetUsdt: ctx.input.budgetUsdt,
+        rsi: rsi.last(),
+        atrPct: (atr.last() / close.last()) * 100,
+        htfTrend: shortBias ? "BEAR" : "NEUTRAL",
+        htfRsi: ta.rsi(htfClose, 14).last(),
         reason: "mtf_short_pullback"
       });
     }
