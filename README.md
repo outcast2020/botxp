@@ -13,7 +13,7 @@ Projeto para operar `DOGEUSDT` com:
 - `bridge/`
   - recebe webhook do TradingView
   - valida risco e duplicatas
-  - executa em dry-run ou live
+  - executa em backtest, dry-run ou live
   - sincroniza `status`, `equity`, `runtime`, `trades` e `executions` com o Apps Script
 - `apps-script/`
   - cria e configura a planilha
@@ -74,6 +74,44 @@ Esta pasta continua pronta para `clasp`, em modo single-file com `appsscript.jso
 8. copie o `bridgeSyncToken`
 9. configure `bridge/.env`
 10. rode `npm run bridge:start`
+
+## Dois modos do bot
+
+### Modo teste
+
+Use `npm run bridge:backtest`.
+
+Esse modo:
+
+- busca candles historicos da Binance Futures
+- simula entradas e saidas em `DOGEUSDT`
+- gera arquivos de saida em `bridge/data`
+- grava um dataset em `training-samples.jsonl` para pesquisa e evolucao do algoritmo
+
+Arquivos gerados:
+
+- `backtest-report.json`
+- `backtest-trades.json`
+- `backtest-equity.json`
+- `backtest-training-samples.jsonl`
+
+### Modo trading
+
+Use `npm run bridge:trade`.
+
+Esse modo:
+
+- sobe o servidor webhook
+- recebe sinais do TradingView
+- opera em `dry-run` ou em conta real, conforme `DRY_RUN`
+- envia snapshots para o Apps Script
+
+Para operar com dinheiro real:
+
+- configure `BINANCE_API_KEY`
+- configure `BINANCE_API_SECRET`
+- ajuste `DRY_RUN=false`
+- mantenha o `APPS_SCRIPT_SYNC_TOKEN` correto
 
 ## GitHub Pages
 

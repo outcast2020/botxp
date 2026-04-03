@@ -58,6 +58,7 @@ const config = {
   port: asNumber(env.PORT, 8787),
   nodeEnv: env.NODE_ENV || "development",
   timezone: env.TIMEZONE || "America/Sao_Paulo",
+  appMode: env.APP_MODE || "trade",
   dryRun: asBoolean(env.DRY_RUN, true),
 
   symbol: (env.SYMBOL || "DOGEUSDT").toUpperCase(),
@@ -88,7 +89,41 @@ const config = {
 
   appsScriptSyncUrl: env.APPS_SCRIPT_SYNC_URL || "",
   appsScriptSyncToken: env.APPS_SCRIPT_SYNC_TOKEN || "",
-  appsScriptSyncTimeoutMs: asNumber(env.APPS_SCRIPT_SYNC_TIMEOUT_MS, 3500)
+  appsScriptSyncTimeoutMs: asNumber(env.APPS_SCRIPT_SYNC_TIMEOUT_MS, 3500),
+
+  backtestStart: env.BACKTEST_START || "",
+  backtestEnd: env.BACKTEST_END || "",
+  backtestLookbackDays: asNumber(env.BACKTEST_LOOKBACK_DAYS, 21),
+  backtestWarmupBars: asNumber(env.BACKTEST_WARMUP_BARS, 600),
+  backtestDatasetForwardBars: asNumber(env.BACKTEST_DATASET_FORWARD_BARS, 15),
+  backtestOutputPrefix: env.BACKTEST_OUTPUT_PREFIX || "backtest",
+
+  strategy: {
+    emaFastLen: asNumber(env.EMA_FAST_LEN, 9),
+    emaSlowLen: asNumber(env.EMA_SLOW_LEN, 34),
+    emaTrendLen: asNumber(env.EMA_TREND_LEN, 89),
+    htfFastLen: asNumber(env.HTF_EMA_FAST_LEN, 21),
+    htfSlowLen: asNumber(env.HTF_EMA_SLOW_LEN, 55),
+    htfBaseLen: asNumber(env.HTF_EMA_BASE_LEN, 200),
+    bbLen: asNumber(env.BB_LEN, 20),
+    bbDev: asNumber(env.BB_DEV, 2),
+    rsiLen: asNumber(env.RSI_LEN, 7),
+    htfRsiLen: asNumber(env.HTF_RSI_LEN, 14),
+    longOversoldRsi: asNumber(env.LONG_OVERSOLD_RSI, 38),
+    shortOverboughtRsi: asNumber(env.SHORT_OVERBOUGHT_RSI, 62),
+    longExitRsi: asNumber(env.LONG_EXIT_RSI, 55),
+    shortExitRsi: asNumber(env.SHORT_EXIT_RSI, 45),
+    atrLen: asNumber(env.ATR_LEN, 14),
+    minAtrPct: asNumber(env.MIN_ATR_PCT, 0.2),
+    maxAtrPct: asNumber(env.MAX_ATR_PCT, 1.2),
+    takeProfitPct: asNumber(env.TAKE_PROFIT_PCT, 0.9),
+    stopLossPct: asNumber(env.STOP_LOSS_PCT, 0.6),
+    breakEvenArmPct: asNumber(env.BREAK_EVEN_ARM_PCT, 0.35),
+    breakEvenLockPct: asNumber(env.BREAK_EVEN_LOCK_PCT, 0.08),
+    trailArmPct: asNumber(env.TRAIL_ARM_PCT, 0.6),
+    trailAtrAligned: asNumber(env.TRAIL_ATR_ALIGNED, 1.3),
+    trailAtrRisk: asNumber(env.TRAIL_ATR_RISK, 0.75)
+  }
 };
 
 module.exports = {

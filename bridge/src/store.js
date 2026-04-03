@@ -126,5 +126,7 @@ module.exports = {
   createRuntime,
   ensureDir,
   loadRuntime,
-  saveRuntime
+  readJson,
+  saveRuntime,
+  writeJson
 };

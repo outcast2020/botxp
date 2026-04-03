@@ -394,7 +394,7 @@ async function processDryRun(signal) {
     const closeSummary = summarizeDryRunOrder(closeSide, runtime.position.qty, signal.price, config.dryRunFeeRate);
     executions.push(buildExecutionRecord("close", closeSide, closeSummary, signal));
     closedTrade = buildClosedTrade(runtime.position.side, runtime.position, closeSummary, signal);
-    runtime.wallet.walletBalance += closedTrade.netPnl;
+    runtime.wallet.walletBalance += closedTrade.grossPnl - closeSummary.feeAmount;
     noteClosedTrade(runtime, closedTrade, config);
     runtime.position = createRuntime(config).position;
   }
@@ -505,7 +505,6 @@ async function processLive(signal) {
 
 async function processSignal(signal) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
-  trackNonce(runtime, signal, config);
 
   const decision = evaluateSignal(runtime, signal, config);
   appendJsonl(config, "signals.jsonl", {
@@ -515,6 +514,9 @@ async function processSignal(signal) {
   });
 
   if (!decision.ok) {
+    if (decision.reason !== "duplicate_nonce") {
+      trackNonce(runtime, signal, config);
+    }
     const snapshot = config.dryRun ? markDryRunSnapshot(signal.price) : await buildLiveSnapshot();
     const status = buildStatusPayload(runtime, snapshot, config);
     const equity = buildEquityPayload(runtime, config);
@@ -529,6 +531,7 @@ async function processSignal(signal) {
     };
   }
 
+  trackNonce(runtime, signal, config);
   const result = config.dryRun ? await processDryRun(signal) : await processLive(signal);
   const regime = signal.htfTrend || "NEUTRAL";
   const equityPoint = updateEquitySeries(runtime, result.snapshot, regime, config);
