@@ -1,0 +1,201 @@
+//@version=6
+strategy(
+    "DOGEUSDT Futures Reactive L/S v1",
+    overlay = true,
+    initial_capital = 20,
+    pyramiding = 0,
+    commission_type = strategy.commission.percent,
+    commission_value = 0.04,
+    process_orders_on_close = true,
+    calc_on_order_fills = true
+)
+
+passphrase = input.string("CHANGE_ME", "Webhook passphrase")
+strategyId = input.string("doge_futures_reactive_v1", "Strategy ID")
+budgetUsdt = input.float(7.0, "Margin budget (USDT)", minval = 1.0, step = 0.1)
+leverageInput = input.int(5, "Leverage", minval = 1, maxval = 10)
+cooldownBars = input.int(5, "Cooldown bars", minval = 1)
+trendTf = input.timeframe("240", "Higher timeframe")
+
+emaFastLen = input.int(9, "EMA Fast", minval = 1)
+emaSlowLen = input.int(34, "EMA Slow", minval = 2)
+emaTrendLen = input.int(89, "EMA Trend", minval = 3)
+htfFastLen = input.int(21, "HTF EMA Fast", minval = 2)
+htfSlowLen = input.int(55, "HTF EMA Slow", minval = 3)
+htfBaseLen = input.int(200, "HTF EMA Base", minval = 10)
+bbLen = input.int(20, "BB Length", minval = 5)
+bbDev = input.float(2.0, "BB Deviation", minval = 0.5, step = 0.1)
+rsiLen = input.int(7, "RSI Length", minval = 2)
+htfRsiLen = input.int(14, "HTF RSI Length", minval = 2)
+longOversoldRsi = input.int(38, "Long RSI Oversold", minval = 5, maxval = 50)
+shortOverboughtRsi = input.int(62, "Short RSI Overbought", minval = 50, maxval = 95)
+longExitRsi = input.int(55, "Long Exit RSI", minval = 40, maxval = 80)
+shortExitRsi = input.int(45, "Short Exit RSI", minval = 20, maxval = 60)
+atrLen = input.int(14, "ATR Length", minval = 2)
+minAtrPct = input.float(0.20, "Min ATR %", minval = 0.01, step = 0.01)
+maxAtrPct = input.float(1.20, "Max ATR %", minval = 0.05, step = 0.05)
+takeProfitPct = input.float(0.90, "Take Profit %", minval = 0.10, step = 0.05)
+stopLossPct = input.float(0.60, "Stop Loss %", minval = 0.10, step = 0.05)
+breakEvenArmPct = input.float(0.35, "Break-even arm %", minval = 0.05, step = 0.05)
+breakEvenLockPct = input.float(0.08, "Break-even lock %", minval = 0.00, step = 0.01)
+trailArmPct = input.float(0.60, "Trail arm %", minval = 0.10, step = 0.05)
+trailAtrAligned = input.float(1.30, "Trail ATR aligned", minval = 0.20, step = 0.05)
+trailAtrRisk = input.float(0.75, "Trail ATR risk", minval = 0.10, step = 0.05)
+
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+emaTrend = ta.ema(close, emaTrendLen)
+
+bbBasis = ta.ema(close, bbLen)
+bbDevValue = ta.stdev(close, bbLen) * bbDev
+bbUpper = bbBasis + bbDevValue
+bbLower = bbBasis - bbDevValue
+
+rsiValue = ta.rsi(close, rsiLen)
+atrPct = (ta.atr(atrLen) / close) * 100.0
+atrValue = ta.atr(atrLen)
+
+htfClose = request.security(syminfo.tickerid, trendTf, close, barmerge.gaps_off, barmerge.lookahead_off)
+htfFast = request.security(syminfo.tickerid, trendTf, ta.ema(close, htfFastLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfSlow = request.security(syminfo.tickerid, trendTf, ta.ema(close, htfSlowLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfBase = request.security(syminfo.tickerid, trendTf, ta.ema(close, htfBaseLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfRsi = request.security(syminfo.tickerid, trendTf, ta.rsi(close, htfRsiLen), barmerge.gaps_off, barmerge.lookahead_off)
+
+trendUp = emaFast > emaSlow and emaSlow > emaTrend
+trendDown = emaFast < emaSlow and emaSlow < emaTrend
+volOk = atrPct >= minAtrPct and atrPct <= maxAtrPct
+htfBull = htfClose > htfBase and htfFast > htfSlow and htfRsi > 52
+htfBear = htfClose < htfBase and htfFast < htfSlow and htfRsi < 48
+
+longSetup = trendUp and htfBull and volOk and low < bbLower and close > bbLower and close > emaFast and rsiValue < longOversoldRsi
+shortSetup = trendDown and htfBear and volOk and high > bbUpper and close < bbUpper and close < emaFast and rsiValue > shortOverboughtRsi
+
+var int lastSignalBar = na
+var float activeLongStop = na
+var float activeShortStop = na
+cooldownOk = na(lastSignalBar) or (bar_index - lastSignalBar >= cooldownBars)
+
+notionalUsdt = budgetUsdt * leverageInput
+qtyHint = math.floor(notionalUsdt / close)
+
+fmtPrice(value) =>
+    str.tostring(value, format.mintick)
+
+fmtSmall(value) =>
+    str.tostring(value, "#.####")
+
+buildPayload(action, reason, qtyValue) =>
+    "{" +
+    "\"passphrase\":\"" + passphrase + "\"," +
+    "\"source\":\"tradingview\"," +
+    "\"strategy_id\":\"" + strategyId + "\"," +
+    "\"action\":\"" + action + "\"," +
+    "\"symbol\":\"" + syminfo.ticker + "\"," +
+    "\"market\":\"usds_m_futures\"," +
+    "\"interval\":\"" + timeframe.period + "\"," +
+    "\"bar_time\":" + str.tostring(time) + "," +
+    "\"price\":\"" + fmtPrice(close) + "\"," +
+    "\"leverage\":\"" + str.tostring(leverageInput) + "\"," +
+    "\"margin_mode\":\"ISOLATED\"," +
+    "\"position_mode\":\"ONE_WAY\"," +
+    "\"order_budget_usdt\":\"" + fmtSmall(budgetUsdt) + "\"," +
+    "\"qty_hint\":\"" + str.tostring(qtyValue) + "\"," +
+    "\"rsi\":\"" + fmtSmall(rsiValue) + "\"," +
+    "\"atr_pct\":\"" + fmtSmall(atrPct) + "\"," +
+    "\"htf_trend\":\"" + (htfBull ? "BULL" : htfBear ? "BEAR" : "NEUTRAL") + "\"," +
+    "\"htf_rsi\":\"" + fmtSmall(htfRsi) + "\"," +
+    "\"reason\":\"" + reason + "\"," +
+    "\"nonce\":\"" + strategyId + "-" + str.tostring(time) + "-" + action + "\"" +
+    "}"
+
+longEntrySignal = longSetup and cooldownOk and strategy.position_size <= 0 and qtyHint >= 1
+shortEntrySignal = shortSetup and cooldownOk and strategy.position_size >= 0 and qtyHint >= 1
+
+if strategy.position_size <= 0
+    activeLongStop := na
+
+if strategy.position_size >= 0
+    activeShortStop := na
+
+if strategy.position_size > 0
+    baseLongStop = strategy.position_avg_price * (1 - stopLossPct / 100)
+    longProfitPct = ((close / strategy.position_avg_price) - 1) * 100
+    longBreakEvenStop = strategy.position_avg_price * (1 + breakEvenLockPct / 100)
+    longTrailCandidate = htfBull ? close - atrValue * trailAtrAligned : close - atrValue * trailAtrRisk
+    activeLongStop := na(activeLongStop) ? baseLongStop : math.max(activeLongStop, baseLongStop)
+    if longProfitPct >= breakEvenArmPct
+        activeLongStop := math.max(activeLongStop, longBreakEvenStop)
+    if longProfitPct >= trailArmPct
+        activeLongStop := math.max(activeLongStop, longTrailCandidate)
+
+if strategy.position_size < 0
+    baseShortStop = strategy.position_avg_price * (1 + stopLossPct / 100)
+    shortProfitPct = ((strategy.position_avg_price / close) - 1) * 100
+    shortBreakEvenStop = strategy.position_avg_price * (1 - breakEvenLockPct / 100)
+    shortTrailCandidate = htfBear ? close + atrValue * trailAtrAligned : close + atrValue * trailAtrRisk
+    activeShortStop := na(activeShortStop) ? baseShortStop : math.min(activeShortStop, baseShortStop)
+    if shortProfitPct >= breakEvenArmPct
+        activeShortStop := math.min(activeShortStop, shortBreakEvenStop)
+    if shortProfitPct >= trailArmPct
+        activeShortStop := math.min(activeShortStop, shortTrailCandidate)
+
+longTakeProfitHit = strategy.position_size > 0 and close >= strategy.position_avg_price * (1 + takeProfitPct / 100) and not htfBull
+longStopLossHit = strategy.position_size > 0 and low <= activeLongStop
+longMomentumExit = strategy.position_size > 0 and close >= bbBasis and rsiValue > longExitRsi and not htfBull
+longTrendBreakExit = strategy.position_size > 0 and (close < emaSlow or htfBear)
+longExitSignal = longTakeProfitHit or longStopLossHit or longMomentumExit or longTrendBreakExit
+longExitReason = longTakeProfitHit ? "long_take_profit_context_weak" : longStopLossHit ? "long_trailing_stop" : longTrendBreakExit ? "long_trend_break" : "long_mean_revert_exit"
+
+shortTakeProfitHit = strategy.position_size < 0 and close <= strategy.position_avg_price * (1 - takeProfitPct / 100) and not htfBear
+shortStopLossHit = strategy.position_size < 0 and high >= activeShortStop
+shortMomentumExit = strategy.position_size < 0 and close <= bbBasis and rsiValue < shortExitRsi and not htfBear
+shortTrendBreakExit = strategy.position_size < 0 and (close > emaSlow or htfBull)
+shortExitSignal = shortTakeProfitHit or shortStopLossHit or shortMomentumExit or shortTrendBreakExit
+shortExitReason = shortTakeProfitHit ? "short_take_profit_context_weak" : shortStopLossHit ? "short_trailing_stop" : shortTrendBreakExit ? "short_trend_break" : "short_mean_revert_exit"
+
+if longExitSignal
+    strategy.close(
+         "LONG",
+         comment = "tv_flat_exit_long",
+         alert_message = buildPayload("FLAT_EXIT", longExitReason, math.abs(strategy.position_size))
+     )
+
+if shortExitSignal
+    strategy.close(
+         "SHORT",
+         comment = "tv_flat_exit_short",
+         alert_message = buildPayload("FLAT_EXIT", shortExitReason, math.abs(strategy.position_size))
+     )
+
+if longEntrySignal
+    lastSignalBar := bar_index
+    strategy.entry(
+         "LONG",
+         strategy.long,
+         qty = qtyHint,
+         comment = "tv_long_entry",
+         alert_message = buildPayload("LONG_ENTRY", "long_dip_reclaim", qtyHint)
+     )
+
+if shortEntrySignal
+    lastSignalBar := bar_index
+    strategy.entry(
+         "SHORT",
+         strategy.short,
+         qty = qtyHint,
+         comment = "tv_short_entry",
+         alert_message = buildPayload("SHORT_ENTRY", "short_spike_fade", qtyHint)
+     )
+
+plot(emaFast, "EMA Fast", color = color.new(color.green, 0), linewidth = 2)
+plot(emaSlow, "EMA Slow", color = color.new(color.orange, 0), linewidth = 2)
+plot(emaTrend, "EMA Trend", color = color.new(color.blue, 0), linewidth = 2)
+plot(bbUpper, "BB Upper", color = color.new(color.red, 55))
+plot(bbBasis, "BB Basis", color = color.new(color.gray, 20))
+plot(bbLower, "BB Lower", color = color.new(color.green, 55))
+plot(activeLongStop, "Active Long Stop", color = color.new(color.teal, 0), linewidth = 1, style = plot.style_linebr)
+plot(activeShortStop, "Active Short Stop", color = color.new(color.purple, 0), linewidth = 1, style = plot.style_linebr)
+
+plotshape(longEntrySignal, title = "Long Entry", style = shape.triangleup, location = location.belowbar, color = color.new(color.green, 0), size = size.tiny, text = "L")
+plotshape(shortEntrySignal, title = "Short Entry", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "S")
+plotshape(longExitSignal or shortExitSignal, title = "Flat Exit", style = shape.circle, location = location.top, color = color.new(color.orange, 0), size = size.tiny, text = "X")

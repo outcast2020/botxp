@@ -1,0 +1,21 @@
+{
+  "name": "paper-trading-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paper trading adaptativo com Google Apps Script e frontend estatico.",
+  "scripts": {
+    "bridge:start": "node ./bridge/src/server.js",
+    "bridge:check": "node --check ./bridge/src/config.js && node --check ./bridge/src/utils.js && node --check ./bridge/src/store.js && node --check ./bridge/src/binance-futures-client.js && node --check ./bridge/src/risk-engine.js && node --check ./bridge/src/apps-script-sync.js && node --check ./bridge/src/server.js",
+    "clasp:login": "npx @google/clasp login",
+    "clasp:create": "npx @google/clasp create --type standalone --title \"Paper Trading Lab\" --rootDir ./apps-script",
+    "clasp:status": "npx @google/clasp status",
+    "clasp:push": "npx @google/clasp push",
+    "clasp:pull": "npx @google/clasp pull",
+    "clasp:open": "npx @google/clasp open-script",
+    "clasp:deploy": "npx @google/clasp deploy -d \"paper-trading-lab\"",
+    "clasp:logs": "npx @google/clasp logs --watch"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.5.0"
+  }
+}

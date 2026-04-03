@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Trading Lab</title>
+    <style>
+      :root {
+        --ink: #201c16;
+        --muted: #6f675b;
+        --panel: rgba(255, 252, 246, 0.94);
+        --line: rgba(50, 42, 30, 0.12);
+        --accent: #ab4b2a;
+        --accent2: #205a56;
+        --ok: #167052;
+        --bad: #a62c2c;
+        --radius: 22px;
+        --shadow: 0 18px 48px rgba(45, 30, 15, 0.10);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(171, 75, 42, 0.14), transparent 30%),
+          radial-gradient(circle at top right, rgba(32, 90, 86, 0.10), transparent 28%),
+          linear-gradient(180deg, #f7f3ec 0%, #eee5d7 100%);
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px 16px 44px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.4fr 0.8fr;
+        gap: 18px;
+        padding: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      h1, h2 { margin: 0; }
+
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        line-height: 0.95;
+        max-width: 12ch;
+      }
+
+      .lede {
+        margin: 16px 0 0;
+        line-height: 1.6;
+        color: var(--muted);
+        max-width: 58ch;
+      }
+
+      .meta-card {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.76), rgba(247,240,230,0.90));
+      }
+
+      .meta-label {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .status-line {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #b98829;
+        box-shadow: 0 0 0 6px rgba(185, 136, 41, 0.10);
+      }
+
+      .dot.online {
+        background: var(--ok);
+        box-shadow: 0 0 0 6px rgba(22, 112, 82, 0.10);
+      }
+
+      .dot.offline {
+        background: var(--bad);
+        box-shadow: 0 0 0 6px rgba(166, 44, 44, 0.10);
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 18px;
+        padding: 16px;
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .button {
+        min-height: 42px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 0;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .button.primary {
+        color: #fff;
+        background: linear-gradient(180deg, #1d5954 0%, #174641 100%);
+      }
+
+      .button.secondary {
+        background: rgba(255,255,255,0.75);
+        border: 1px solid var(--line);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .metric {
+        padding: 18px;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 8px;
+        font-size: clamp(1.3rem, 2vw, 1.8rem);
+      }
+
+      .metric small {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .chart-wrap {
+        height: 340px;
+        padding: 16px 18px 18px;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .table-wrap {
+        padding: 10px 18px 18px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        padding: 12px 8px;
+        text-align: left;
+        border-bottom: 1px solid rgba(50, 42, 30, 0.08);
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+
+      .state-long { color: var(--ok); font-weight: 700; }
+      .state-short { color: var(--accent); font-weight: 700; }
+      .state-flat { color: var(--muted); font-weight: 700; }
+
+      a {
+        color: var(--accent2);
+        text-decoration: none;
+      }
+
+      @media (max-width: 980px) {
+        .hero, .metrics, .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Apps Script only</p>
+          <h1>Paper trading rodando 100% no Google Apps Script</h1>
+          <p class="lede">
+            O Web App serve o painel HTML, os snapshots JSON e o motor de simulacao. Sem GitHub Pages, sem servidor extra e sem ordens reais.
+          </p>
+        </div>
+        <div class="meta-card">
+          <div class="status-line">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">Carregando</span>
+          </div>
+          <div><span class="meta-label">Ultima atualizacao</span><br><strong id="updatedAt">-</strong></div>
+          <div><span class="meta-label">Planilha</span><br><strong id="sheetLink">Nao configurada</strong></div>
+        </div>
+      </section>
+
+      <section class="toolbar panel">
+        <div class="toolbar-left">
+          <button id="refreshBtn" class="button primary">Atualizar</button>
+          <button id="runCycleBtn" class="button secondary">Rodar ciclo agora</button>
+        </div>
+        <div class="toolbar-right">
+          <span class="meta-label" id="symbolMeta">BTCUSDT / 5m</span>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article class="panel metric">
+          <span class="meta-label">Equity total</span>
+          <strong id="equityTotal">R$ 0,00</strong>
+          <small id="equityPnl">PnL 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Regime</span>
+          <strong id="marketRegime">-</strong>
+          <small id="preferredStrategy">Estrategia preferida: -</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Trades</span>
+          <strong id="totalTrades">0</strong>
+          <small id="avgWinRate">Win rate medio 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Preco</span>
+          <strong id="lastPrice">0</strong>
+          <small id="trendBias">Tendencia: -</small>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Equity</h2>
+            <span id="equityMeta" class="meta-label">0 pontos</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="equityChart"></canvas>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Bots</h2>
+            <span class="meta-label">Estado atual</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Bot</th>
+                  <th>Estado</th>
+                  <th>Equity</th>
+                  <th>Trades</th>
+                  <th>Win rate</th>
+                </tr>
+              </thead>
+              <tbody id="botsTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+
+      function money(value) {
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL"
+        }).format(Number(value || 0));
+      }
+
+      function pctFromDecimal(value) {
+        return `${(Number(value || 0) * 100).toFixed(1)}%`;
+      }
+
+      function pctPlain(value) {
+        return `${Number(value || 0).toFixed(2)}%`;
+      }
+
+      function stateClass(state) {
+        if (state === "LONG") return "state-long";
+        if (state === "SHORT") return "state-short";
+        return "state-flat";
+      }
+
+      function drawChart(points) {
+        const canvas = el("equityChart");
+        const ctx = canvas.getContext("2d");
+        const bounds = canvas.parentElement.getBoundingClientRect();
+        canvas.width = bounds.width * window.devicePixelRatio;
+        canvas.height = bounds.height * window.devicePixelRatio;
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+        const width = bounds.width;
+        const height = bounds.height;
+        ctx.clearRect(0, 0, width, height);
+
+        if (!points || points.length < 2) {
+          ctx.fillStyle = "#6f675b";
+          ctx.font = "14px Segoe UI";
+          ctx.fillText("Sem serie suficiente para desenhar.", 16, 24);
+          return;
+        }
+
+        const pad = { top: 16, right: 12, bottom: 24, left: 44 };
+        const values = points.map((point) => Number(point.totalEquity || 0));
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const span = Math.max(max - min, 0.001);
+
+        ctx.strokeStyle = "rgba(50, 42, 30, 0.12)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i += 1) {
+          const y = pad.top + ((height - pad.top - pad.bottom) / 3) * i;
+          ctx.beginPath();
+          ctx.moveTo(pad.left, y);
+          ctx.lineTo(width - pad.right, y);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        points.forEach((point, index) => {
+          const x = pad.left + (index / (points.length - 1)) * (width - pad.left - pad.right);
+          const y = pad.top + (1 - ((Number(point.totalEquity) - min) / span)) * (height - pad.top - pad.bottom);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = "#ab4b2a";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        ctx.lineTo(width - pad.right, height - pad.bottom);
+        ctx.lineTo(pad.left, height - pad.bottom);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(171, 75, 42, 0.12)";
+        ctx.fill();
+
+        ctx.fillStyle = "#6f675b";
+        ctx.font = "12px Segoe UI";
+        ctx.fillText(min.toFixed(2), 8, height - pad.bottom);
+        ctx.fillText(max.toFixed(2), 8, pad.top + 4);
+      }
+
+      function render(bundle) {
+        const status = bundle.status || {};
+        const equity = bundle.equity || { series: [] };
+        const config = bundle.config || {};
+
+        el("updatedAt").textContent = status.timestamp ? new Date(status.timestamp).toLocaleString("pt-BR") : "-";
+        el("equityTotal").textContent = money(status.summary?.currentEquity);
+        el("equityPnl").textContent = `PnL ${pctPlain(status.summary?.pnlPercent || 0)}`;
+        el("marketRegime").textContent = status.marketRegime || "-";
+        el("preferredStrategy").textContent = `Estrategia preferida: ${status.preferredStrategy || "-"}`;
+        el("totalTrades").textContent = status.summary?.totalTrades ?? 0;
+        el("avgWinRate").textContent = `Win rate medio ${pctFromDecimal(status.summary?.avgWinRate || 0)}`;
+        el("lastPrice").textContent = Number(status.price || 0).toLocaleString("pt-BR");
+        el("trendBias").textContent = `Tendencia: ${status.trendBias || "-"}`;
+        el("symbolMeta").textContent = `${status.symbol || config.symbol || "-"} / ${status.timeframe || config.timeframe || "-"}`;
+        el("equityMeta").textContent = `${equity.series?.length || 0} pontos`;
+
+        const ageMs = status.timestamp ? Date.now() - new Date(status.timestamp).getTime() : Number.MAX_SAFE_INTEGER;
+        const online = ageMs < 10 * 60 * 1000;
+        el("statusDot").className = `dot ${online ? "online" : "offline"}`;
+        el("statusText").textContent = online ? "Snapshot recente" : "Snapshot antigo";
+
+        if (config.spreadsheetUrl) {
+          el("sheetLink").innerHTML = `<a href="${config.spreadsheetUrl}" target="_blank">Abrir planilha</a>`;
+        } else {
+          el("sheetLink").textContent = "Nao configurada";
+        }
+
+        const rows = (status.bots || []).map((bot) => `
+          <tr>
+            <td>${bot.name}</td>
+            <td class="${stateClass(bot.state)}">${bot.state}</td>
+            <td>${money(bot.equity)}</td>
+            <td>${bot.tradeCount}</td>
+            <td>${pctFromDecimal(bot.winRate)}</td>
+          </tr>
+        `).join("");
+
+        el("botsTable").innerHTML = rows || '<tr><td colspan="5">Nenhum bot carregado.</td></tr>';
+        drawChart(equity.series || []);
+      }
+
+      function loadBundle() {
+        google.script.run
+          .withSuccessHandler(render)
+          .withFailureHandler((error) => {
+            el("statusDot").className = "dot offline";
+            el("statusText").textContent = "Erro ao carregar";
+            console.error(error);
+          })
+          .getDashboardBundle();
+      }
+
+      function runCycleNow() {
+        el("statusText").textContent = "Rodando ciclo";
+        google.script.run
+          .withSuccessHandler(() => loadBundle())
+          .withFailureHandler((error) => {
+            el("statusDot").className = "dot offline";
+            el("statusText").textContent = "Erro no ciclo";
+            console.error(error);
+          })
+          .refreshDashboardCycle();
+      }
+
+      el("refreshBtn").addEventListener("click", loadBundle);
+      el("runCycleBtn").addEventListener("click", runCycleNow);
+      window.addEventListener("resize", loadBundle);
+
+      loadBundle();
+      setInterval(loadBundle, 30000);
+    </script>
+  </body>
+</html>

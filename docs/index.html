@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOTXP Dashboard</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">GitHub Pages + Apps Script</p>
+          <h1>DOGE Futures bridge com painel publico no GitHub</h1>
+          <p class="lede">
+            Este painel le o status do bridge Node.js a partir do Web App do Apps Script e mostra equity, regime, runtime e historico recente sem depender do editor do Google para consulta.
+          </p>
+        </div>
+        <div class="meta-card">
+          <div class="status-line">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">Aguardando conexao</span>
+          </div>
+          <div><span class="meta-label">Ultima atualizacao</span><br><strong id="updatedAt">-</strong></div>
+          <div><span class="meta-label">Web App</span><br><strong id="webAppLabel">Nao configurado</strong></div>
+          <div><span class="meta-label">Planilha</span><br><strong id="sheetLink">Nao configurada</strong></div>
+        </div>
+      </section>
+
+      <section class="toolbar panel">
+        <div class="toolbar-left">
+          <input id="baseUrlInput" class="text-input" type="url" placeholder="Cole a URL /exec do Web App">
+          <button id="saveBtn" class="button secondary">Salvar URL</button>
+          <button id="refreshBtn" class="button primary">Atualizar</button>
+        </div>
+        <div class="toolbar-right">
+          <span class="meta-label" id="symbolMeta">DOGEUSDT / 1m + 4h</span>
+        </div>
+      </section>
+
+      <section id="hintPanel" class="panel hint">
+        <strong>Requisito para GitHub Pages:</strong>
+        o Web App do Apps Script precisa estar publicado com acesso publico de leitura. Se o painel mostrar erro de login ou CORS, publique o deploy como <code>Anyone</code>.
+      </section>
+
+      <section class="metrics">
+        <article class="panel metric">
+          <span class="meta-label">Equity total</span>
+          <strong id="equityTotal">USDT 0.00</strong>
+          <small id="equityPnl">PnL 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Regime</span>
+          <strong id="marketRegime">-</strong>
+          <small id="preferredStrategy">Estrategia: -</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Trades</span>
+          <strong id="totalTrades">0</strong>
+          <small id="avgWinRate">Win rate 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Posicao</span>
+          <strong id="positionState">FLAT</strong>
+          <small id="runtimeMeta">Leverage 0x</small>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Equity</h2>
+            <span id="equityMeta" class="meta-label">0 pontos</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="equityChart"></canvas>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Bridge</h2>
+            <span class="meta-label">Estado atual</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><th>Bot</th><td id="botName">doge_futures_bridge</td></tr>
+                <tr><th>Preco</th><td id="lastPrice">0</td></tr>
+                <tr><th>Tendencia</th><td id="trendBias">-</td></tr>
+                <tr><th>Qty</th><td id="positionQty">0</td></tr>
+                <tr><th>Margem usada</th><td id="marginUsed">0</td></tr>
+                <tr><th>PnL nao realizado</th><td id="unrealizedPnl">0</td></tr>
+                <tr><th>Ultimo sinal</th><td id="lastSignal">-</td></tr>
+                <tr><th>Ultimo erro</th><td id="lastError">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel trades-panel">
+        <div class="panel-head">
+          <h2>Trades Recentes</h2>
+          <span class="meta-label">Ultimos fechamentos</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trade</th>
+                <th>Lado</th>
+                <th>Qty</th>
+                <th>Entrada</th>
+                <th>Saida</th>
+                <th>Net PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradesTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

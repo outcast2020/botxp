@@ -1,0 +1,6 @@
+node_modules/
+.clasprc.json
+npm-debug.log*
+bridge/.env
+bridge/data/*.json
+bridge/data/*.jsonl
