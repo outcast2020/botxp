@@ -729,15 +729,21 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/policy") {
       if (policyEngine.isEnabled()) {
-        runtime.policy = await policyEngine.fetchPolicy({
-          oil: runtime.macro?.oil || null,
-          runtime: currentRuntimeState(),
-          signal: {
-            action: "MANUAL_CHECK",
-            leverage: config.defaultLeverage,
-            htfTrend: runtime.lastSignal?.htfTrend || "NEUTRAL"
-          }
-        });
+        try {
+          runtime.policy = await policyEngine.fetchPolicy({
+            oil: runtime.macro?.oil || null,
+            runtime: currentRuntimeState(),
+            signal: {
+              action: "MANUAL_CHECK",
+              leverage: config.defaultLeverage,
+              htfTrend: runtime.lastSignal?.htfTrend || "NEUTRAL"
+            }
+          });
+        } catch (error) {
+          runtime.lastError = `Falha DeepSeek policy: ${error.message}`;
+          runtime.policy = policyEngine.fallback(runtime.policy, error.message);
+          saveRuntime(config, runtime);
+        }
       }
       return json(res, 200, runtime.policy || buildDisabledPolicy(config));
     }
