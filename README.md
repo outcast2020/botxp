@@ -8,6 +8,14 @@ Projeto para operar `DOGEUSDT` com:
 - `Google Apps Script` recebendo snapshots e gravando em planilha
 - `GitHub Pages` exibindo o painel publico
 
+Defaults atuais:
+
+- execucao principal em `5m`
+- filtro direcional em `4h`
+- `DEFAULT_LEVERAGE=3`
+- `MAX_LEVERAGE=5`
+- capital inicial de pesquisa em `20 USDT`
+
 ## Arquitetura atual
 
 - `bridge/`
@@ -70,7 +78,7 @@ Esta pasta continua pronta para `clasp`, em modo single-file com `appsscript.jso
 4. crie um projeto standalone no Apps Script ou use um existente
 5. cole o `scriptId` em `.clasp.json`
 6. rode `npm run clasp:push`
-7. no Apps Script, rode `setupBridgeSpreadsheet()`
+7. no Apps Script, rode `configureDefaultBridgeSpreadsheet()`
 8. copie o `bridgeSyncToken`
 9. configure `bridge/.env`
 10. rode `npm run bridge:start`
@@ -126,8 +134,8 @@ Depois de subir este repo para `main`, configure no GitHub:
 
 O dashboard vai tentar ler por padrao:
 
-- [status](https://script.google.com/macros/s/AKfycbxI7ZYoBv724KKiTKv16w7Bfdo79J3Qko7kKM42FcLXYGn_OlrtGEXLhSDNZ-H5_sBb/exec?view=status)
-- [equity](https://script.google.com/macros/s/AKfycbxI7ZYoBv724KKiTKv16w7Bfdo79J3Qko7kKM42FcLXYGn_OlrtGEXLhSDNZ-H5_sBb/exec?view=equity)
-- [runtime](https://script.google.com/macros/s/AKfycbxI7ZYoBv724KKiTKv16w7Bfdo79J3Qko7kKM42FcLXYGn_OlrtGEXLhSDNZ-H5_sBb/exec?view=runtime)
+- [status](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=status)
+- [equity](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=equity)
+- [runtime](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec?view=runtime)
 
 Se o Web App estiver privado, o Pages nao consegue ler. Nesse caso, publique o deploy como `Anyone`.

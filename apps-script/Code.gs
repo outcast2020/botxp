@@ -1,5 +1,5 @@
 var CONFIG = {
-  symbol: "BTCUSDT",
+  symbol: "DOGEUSDT",
   interval: "5m",
   defaultBridgeSpreadsheetId: "1J2zlPKwbgZCYkLEh6eCN4PLjLChUmyrxDPElwpSVzsQ",
   marketDataBaseUrls: [

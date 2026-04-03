@@ -20,7 +20,7 @@
 4. Crie um Script standalone no editor do Apps Script.
 5. Preencha o `scriptId` em `.clasp.json`.
 6. Rode `npm run clasp:push`.
-7. No editor do Apps Script, execute `setupBridgeSpreadsheet()`.
+7. No editor do Apps Script, execute `configureDefaultBridgeSpreadsheet()`.
 8. Copie o `bridgeSyncToken` retornado.
 9. Faca deploy como `Web app`.
 10. Se quiser usar o painel do GitHub Pages, publique o deploy com acesso de leitura `Anyone`.
@@ -30,6 +30,7 @@ Opcionalmente, voce pode tentar `npm run clasp:create`, mas o caminho mais simpl
 ## Funcoes principais
 
 - `setupBridgeSpreadsheet()`
+- `configureDefaultBridgeSpreadsheet()`
 - `configureBridgeSpreadsheet(spreadsheetId)`
 - `getBridgeSyncToken()`
 - `setBridgeSyncToken(token)`
@@ -46,6 +47,6 @@ Agora o projeto pode operar inteiramente dentro do Apps Script:
 
 URL publicada atual:
 
-- [painel](https://script.google.com/macros/s/AKfycbxI7ZYoBv724KKiTKv16w7Bfdo79J3Qko7kKM42FcLXYGn_OlrtGEXLhSDNZ-H5_sBb/exec)
+- [painel](https://script.google.com/macros/s/AKfycbwKPRr2qiqtIPPPRQeBI7BBewPUUpmjw0L8zgoPZIOIPVyG7QLTiQywUjjmYbdp86694Q/exec)
 
 O frontend em `docs/` agora eh o dashboard para GitHub Pages.

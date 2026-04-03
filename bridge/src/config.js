@@ -63,12 +63,12 @@ const config = {
 
   symbol: (env.SYMBOL || "DOGEUSDT").toUpperCase(),
   market: env.MARKET || "usds_m_futures",
-  timeframe: env.TIMEFRAME || "1m",
+  timeframe: env.TIMEFRAME || "5m",
   htfTimeframe: env.HTF_TIMEFRAME || "4h",
   initialCapitalUsdt: asNumber(env.INITIAL_CAPITAL_USDT, 20),
   orderBudgetUsdt: asNumber(env.ORDER_BUDGET_USDT, 7),
-  defaultLeverage: asNumber(env.DEFAULT_LEVERAGE, 5),
-  maxLeverage: asNumber(env.MAX_LEVERAGE, 10),
+  defaultLeverage: asNumber(env.DEFAULT_LEVERAGE, 3),
+  maxLeverage: asNumber(env.MAX_LEVERAGE, 5),
   marginMode: (env.MARGIN_MODE || "ISOLATED").toUpperCase(),
   positionMode: (env.POSITION_MODE || "ONE_WAY").toUpperCase(),
 
