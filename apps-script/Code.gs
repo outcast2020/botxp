@@ -791,9 +791,7 @@ function doGet(e) {
       symbol: CONFIG.symbol,
       timeframe: CONFIG.interval,
       spreadsheetId: getSpreadsheetId(),
-      spreadsheetUrl: getSpreadsheetUrl(),
-      coinglassOverviewUrl: "https://www.coinglass.com/currencies/DOGE",
-      coinglassOiUrl: "https://www.coinglass.com/open-interest/DOGE"
+      spreadsheetUrl: getSpreadsheetUrl()
     });
   }
 
@@ -817,9 +815,7 @@ function getDashboardBundle() {
       symbol: CONFIG.symbol,
       timeframe: CONFIG.interval,
       spreadsheetId: getSpreadsheetId(),
-      spreadsheetUrl: getSpreadsheetUrl(),
-      coinglassOverviewUrl: "https://www.coinglass.com/currencies/DOGE",
-      coinglassOiUrl: "https://www.coinglass.com/open-interest/DOGE"
+      spreadsheetUrl: getSpreadsheetUrl()
     },
     status: readPayload(STATE_KEYS.status, defaultStatusPayload_()),
     equity: readPayload(STATE_KEYS.equity, defaultEquityPayload_()),

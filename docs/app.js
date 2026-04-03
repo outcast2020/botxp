@@ -166,12 +166,6 @@ function render(bundle, baseUrl) {
     : (policy.sessionFilter || "OFF");
   $("policyNotes").textContent = policy.notes || "-";
 
-  const overviewUrl = config.coinglassOverviewUrl || "https://www.coinglass.com/currencies/DOGE";
-  const oiUrl = config.coinglassOiUrl || "https://www.coinglass.com/open-interest/DOGE";
-  $("coinglassFrame").src = overviewUrl;
-  $("coinglassOverviewLink").href = overviewUrl;
-  $("coinglassOiLink").href = oiUrl;
-
   const trades = status.recentTrades || [];
   $("tradesTable").innerHTML = trades.length
     ? trades.map((trade) => `

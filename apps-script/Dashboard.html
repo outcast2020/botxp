@@ -417,15 +417,20 @@
 
         <article class="panel">
           <div class="panel-head">
-            <h2>CoinGlass DOGE</h2>
-            <span class="meta-label">Painel externo de mercado</span>
+            <h2>Terminal Proprio</h2>
+            <span class="meta-label">Rota aberta para sinais em JS</span>
           </div>
-          <div class="market-wrap">
-            <iframe id="coinglassFrame" class="market-frame" title="CoinGlass DOGE" loading="lazy"></iframe>
-            <div class="market-links">
-              <a id="coinglassOverviewLink" class="button secondary" href="https://www.coinglass.com/currencies/DOGE" target="_blank" rel="noopener noreferrer">Abrir CoinGlass DOGE</a>
-              <a id="coinglassOiLink" class="button secondary" href="https://www.coinglass.com/open-interest/DOGE" target="_blank" rel="noopener noreferrer">Abrir Open Interest</a>
-            </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><th>Fonte alvo</th><td>Binance REST + WebSocket</td></tr>
+                <tr><th>Chart</th><td>terminal web aberto</td></tr>
+                <tr><th>Script</th><td>JS estilo Pine</td></tr>
+                <tr><th>Emissor</th><td>webhook local para a bridge</td></tr>
+                <tr><th>Execucao</th><td>bridge Node.js com firewall</td></tr>
+                <tr><th>Roadmap</th><td id="terminalRoadmap">editor, plots, replay e sinais unificados</td></tr>
+              </tbody>
+            </table>
           </div>
         </article>
       </section>
@@ -574,12 +579,6 @@
           ? `${policy.sessionStartHour}:${String(0).padStart(2, "0")} - ${policy.sessionEndHour}:${String(0).padStart(2, "0")}`
           : (policy.sessionFilter || "OFF");
         el("policyNotes").textContent = policy.notes || "-";
-
-        var overviewUrl = config.coinglassOverviewUrl || "https://www.coinglass.com/currencies/DOGE";
-        var oiUrl = config.coinglassOiUrl || "https://www.coinglass.com/open-interest/DOGE";
-        el("coinglassFrame").src = overviewUrl;
-        el("coinglassOverviewLink").href = overviewUrl;
-        el("coinglassOiLink").href = oiUrl;
 
         drawChart(equity.series || []);
       }
