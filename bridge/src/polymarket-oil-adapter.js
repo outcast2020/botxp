@@ -83,6 +83,19 @@ function computeMacroStressScore(markets) {
   return maxWeight ? weightedSum / maxWeight : 0;
 }
 
+function marketProbability(markets, target) {
+  const match = markets.find((market) => market.target === target && market.direction === "HIGH");
+  return match ? Number(toNumber(match.midpoint, 0).toFixed(4)) : null;
+}
+
+function meanChange(markets, field) {
+  const values = markets
+    .map((market) => toNumber(market[field], NaN))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
 async function fetchJson(url, init) {
   const response = await fetch(url, init);
   const text = await response.text();
@@ -233,6 +246,14 @@ class PolymarketOilAdapter {
       liquidity: Number(toNumber(event.liquidityClob || event.liquidity, 0).toFixed(2)),
       macroStressScore: Number(macroStressScore.toFixed(4)),
       macroRegime,
+      riskMarkers: {
+        high120: marketProbability(enrichedMarkets, 120),
+        high130: marketProbability(enrichedMarkets, 130),
+        high140: marketProbability(enrichedMarkets, 140),
+        avgChange15m: Number(meanChange(enrichedMarkets, "priceChange15m").toFixed(4)),
+        avgChange1h: Number(meanChange(enrichedMarkets, "priceChange1h").toFixed(4)),
+        avgChange1d: Number(meanChange(enrichedMarkets, "priceChange1d").toFixed(4))
+      },
       oilMarkets: enrichedMarkets
     };
 

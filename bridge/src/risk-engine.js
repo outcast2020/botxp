@@ -11,6 +11,7 @@ function resetDailyIfNeeded(runtime, config, timestamp = Date.now()) {
 function evaluateSignal(runtime, signal, config, context = {}) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
   const oil = context.oil || runtime.macro?.oil || null;
+  const policy = context.policy || runtime.policy || null;
 
   if (runtime.recentNonces.includes(signal.nonce)) {
     return { ok: false, ignored: true, reason: "duplicate_nonce" };
@@ -30,6 +31,30 @@ function evaluateSignal(runtime, signal, config, context = {}) {
   }
 
   if (signal.action !== "FLAT_EXIT") {
+    if (config.deepseek?.required) {
+      if (!policy || policy.enabled === false) {
+        return { ok: false, ignored: true, reason: "policy_missing" };
+      }
+
+      if (policy.stale) {
+        return { ok: false, ignored: true, reason: "policy_stale" };
+      }
+    }
+
+    if (policy && policy.enabled !== false) {
+      if (policy.noTrade || policy.allowedSide === "NO_TRADE") {
+        return { ok: false, ignored: true, reason: "policy_no_trade" };
+      }
+
+      if (signal.action === "LONG_ENTRY" && policy.allowedSide === "SHORT_ONLY") {
+        return { ok: false, ignored: true, reason: "policy_short_only" };
+      }
+
+      if (signal.action === "SHORT_ENTRY" && policy.allowedSide === "LONG_ONLY") {
+        return { ok: false, ignored: true, reason: "policy_long_only" };
+      }
+    }
+
     if (config.polymarket?.enabled) {
       if (!oil || oil.enabled === false) {
         return { ok: false, ignored: true, reason: "macro_snapshot_missing" };
@@ -144,6 +169,7 @@ function buildStatusPayload(runtime, snapshot, config, context = {}) {
     : 0;
   const marketRegime = runtime.lastSignal?.htfTrend || "NEUTRAL";
   const oil = context.oil || runtime.macro?.oil || null;
+  const policy = context.policy || runtime.policy || null;
   const trendBias =
     runtime.position.side !== "FLAT"
       ? runtime.position.side
@@ -178,6 +204,20 @@ function buildStatusPayload(runtime, snapshot, config, context = {}) {
           eventSlug: oil.eventSlug || null,
           updatedAt: oil.updatedAt || oil.fetchedAt || null,
           volume24hr: Number(toNumber(oil.volume24hr, 0).toFixed(2))
+        }
+      : null,
+    policy: policy
+      ? {
+          enabled: Boolean(policy.enabled),
+          riskMode: policy.riskMode || "NEUTRAL",
+          allowedSide: policy.allowedSide || "BOTH",
+          leverageCap: toNumber(policy.leverageCap, config.defaultLeverage),
+          stopProfile: policy.stopProfile || "NORMAL",
+          holdPolicy: policy.holdPolicy || "NORMAL",
+          noTrade: Boolean(policy.noTrade),
+          confidence: Number(toNumber(policy.confidence, 0).toFixed(4)),
+          stale: Boolean(policy.stale),
+          notes: policy.notes || ""
         }
       : null,
     bots: [

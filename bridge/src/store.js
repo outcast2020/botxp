@@ -59,6 +59,24 @@ function createRuntime(config) {
         oilMarkets: []
       }
     },
+    policy: {
+      enabled: Boolean(config.deepseek?.enabled && config.deepseek?.apiKey),
+      source: "bootstrap",
+      required: Boolean(config.deepseek?.required),
+      fetchedAt: null,
+      stale: Boolean(config.deepseek?.enabled && config.deepseek?.required),
+      riskMode: "NEUTRAL",
+      allowedSide: "BOTH",
+      leverageCap: config.defaultLeverage,
+      stopProfile: "NORMAL",
+      holdPolicy: "NORMAL",
+      sessionFilter: "OFF",
+      sessionStartHour: 0,
+      sessionEndHour: 24,
+      confidence: 0,
+      noTrade: false,
+      notes: "deepseek_disabled"
+    },
     position: {
       side: "FLAT",
       qty: 0,

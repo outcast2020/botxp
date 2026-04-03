@@ -9,6 +9,7 @@ Bridge minima para receber webhooks do TradingView, decidir risco, executar `DOG
 - valida `passphrase`, idade do sinal e duplicatas por `nonce`
 - opera em `One-way + Isolated`
 - consulta a Polymarket para um proxy macro de stress no mercado de oil
+- pode consultar a API da DeepSeek para gerar uma politica de risco em JSON
 - suporta `dry-run` por padrao
 - registra estado e logs locais em `bridge/data`
 - sincroniza `status` e `equity` com o Apps Script, se configurado
@@ -61,7 +62,31 @@ O arquivo `training-samples.jsonl` serve como base para comparar features, rotul
 - `GET /health`
 - `GET /state`
 - `GET /macro/oil`
+- `GET /policy`
 - `POST /webhook`
+
+## Polymarket + DeepSeek
+
+Para habilitar a camada de politica de risco:
+
+- deixe `POLYMARKET_ENABLED=true`
+- configure `DEEPSEEK_ENABLED=true`
+- configure `DEEPSEEK_API_KEY`
+- opcionalmente ajuste `DEEPSEEK_MODEL=deepseek-chat`
+
+Papel de cada camada:
+
+- `Polymarket`: proxy de stress macro via oil
+- `DeepSeek`: converte contexto em politica JSON
+- `bridge`: aplica firewall de risco e continua sendo a unica camada que pode mandar ordem
+
+A politica do DeepSeek pode limitar:
+
+- `allowed_side`
+- `leverage_cap`
+- `no_trade`
+- `stop_profile`
+- `session_filter`
 
 ## Virando para live
 
@@ -80,6 +105,7 @@ Se voce preencher `APPS_SCRIPT_SYNC_URL`, a bridge envia:
 - `equity`
 - `runtime`
 - `macro`
+- `policy`
 - `executions`
 - `trades`
 

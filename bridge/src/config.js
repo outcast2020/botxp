@@ -100,6 +100,18 @@ const config = {
     staleMs: asNumber(env.POLYMARKET_STALE_MS, 90000),
     hardBlockScore: asNumber(env.POLYMARKET_HARD_BLOCK_SCORE, 0.9)
   },
+  deepseek: {
+    enabled: asBoolean(env.DEEPSEEK_ENABLED, false),
+    required: asBoolean(env.DEEPSEEK_REQUIRED, false),
+    apiKey: env.DEEPSEEK_API_KEY || "",
+    baseUrl: env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+    model: env.DEEPSEEK_MODEL || "deepseek-chat",
+    refreshMs: asNumber(env.DEEPSEEK_REFRESH_MS, 300000),
+    staleMs: asNumber(env.DEEPSEEK_STALE_MS, 900000),
+    timeoutMs: asNumber(env.DEEPSEEK_TIMEOUT_MS, 6000),
+    maxTokens: asNumber(env.DEEPSEEK_MAX_TOKENS, 400),
+    temperature: asNumber(env.DEEPSEEK_TEMPERATURE, 0.1)
+  },
 
   backtestStart: env.BACKTEST_START || "",
   backtestEnd: env.BACKTEST_END || "",

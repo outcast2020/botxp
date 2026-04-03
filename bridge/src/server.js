@@ -1,6 +1,7 @@
 const http = require("http");
 const { config } = require("./config");
 const { BinanceApiError, BinanceFuturesClient } = require("./binance-futures-client");
+const { DeepSeekPolicyEngine, buildDisabledPolicy } = require("./deepseek-policy-engine");
 const { PolymarketOilAdapter } = require("./polymarket-oil-adapter");
 const {
   buildEquityPayload,
@@ -27,6 +28,7 @@ const {
 const runtime = loadRuntime(config);
 const client = config.dryRun ? null : new BinanceFuturesClient(config);
 const oilAdapter = new PolymarketOilAdapter(config);
+const policyEngine = new DeepSeekPolicyEngine(config);
 
 let symbolRules = {
   symbol: config.symbol,
@@ -157,6 +159,27 @@ async function bootstrap() {
       saveRuntime(config, runtime);
     }
   }
+
+  if (policyEngine.isEnabled()) {
+    try {
+      runtime.policy = await policyEngine.fetchPolicy({
+        oil: runtime.macro?.oil || null,
+        runtime: currentRuntimeState(),
+        signal: {
+          action: "BOOT",
+          leverage: config.defaultLeverage,
+          htfTrend: "NEUTRAL"
+        }
+      }, { force: true });
+      saveRuntime(config, runtime);
+    } catch (error) {
+      runtime.lastError = `Falha ao carregar policy DeepSeek: ${error.message}`;
+      runtime.policy = policyEngine.fallback(runtime.policy, error.message);
+      saveRuntime(config, runtime);
+    }
+  } else {
+    runtime.policy = runtime.policy || buildDisabledPolicy(config);
+  }
 }
 
 function currentRuntimeState() {
@@ -179,7 +202,8 @@ function currentRuntimeState() {
         stale: false,
         oilMarkets: []
       }
-    }
+    },
+    policy: runtime.policy || buildDisabledPolicy(config)
   };
 }
 
@@ -549,6 +573,7 @@ async function processLive(signal) {
 async function processSignal(signal) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
   runtime.macro = runtime.macro || {};
+  runtime.policy = runtime.policy || buildDisabledPolicy(config);
 
   let macroSnapshot = runtime.macro.oil || null;
   if (oilAdapter.isEnabled()) {
@@ -562,14 +587,38 @@ async function processSignal(signal) {
     }
   }
 
+  let policySnapshot = runtime.policy || buildDisabledPolicy(config);
+  if (policyEngine.isEnabled()) {
+    try {
+      policySnapshot = await policyEngine.fetchPolicy({
+        oil: macroSnapshot,
+        runtime: currentRuntimeState(),
+        signal
+      }, {
+        force: signal.action !== "FLAT_EXIT"
+      });
+      runtime.policy = policySnapshot;
+    } catch (error) {
+      runtime.lastError = `Falha DeepSeek policy: ${error.message}`;
+      policySnapshot = policyEngine.fallback(runtime.policy, error.message);
+      runtime.policy = policySnapshot;
+    }
+  }
+
+  if (policySnapshot && signal.action !== "FLAT_EXIT") {
+    signal.leverage = Math.min(signal.leverage || config.defaultLeverage, toNumber(policySnapshot.leverageCap, config.defaultLeverage), config.maxLeverage);
+  }
+
   const decision = evaluateSignal(runtime, signal, config, {
-    oil: macroSnapshot
+    oil: macroSnapshot,
+    policy: policySnapshot
   });
   appendJsonl(config, "signals.jsonl", {
     timestamp: nowIso(),
     signal,
     decision,
-    macro: macroSnapshot
+    macro: macroSnapshot,
+    policy: policySnapshot
   });
 
   if (!decision.ok) {
@@ -578,7 +627,8 @@ async function processSignal(signal) {
     }
     const snapshot = config.dryRun ? markDryRunSnapshot(signal.price) : await buildLiveSnapshot();
     const status = buildStatusPayload(runtime, snapshot, config, {
-      oil: macroSnapshot
+      oil: macroSnapshot,
+      policy: policySnapshot
     });
     const equity = buildEquityPayload(runtime, config);
     saveRuntime(config, runtime);
@@ -597,7 +647,8 @@ async function processSignal(signal) {
   const regime = signal.htfTrend || "NEUTRAL";
   const equityPoint = updateEquitySeries(runtime, result.snapshot, regime, config);
   const status = buildStatusPayload(runtime, result.snapshot, config, {
-    oil: macroSnapshot
+    oil: macroSnapshot,
+    policy: policySnapshot
   });
   const equity = buildEquityPayload(runtime, config);
 
@@ -611,6 +662,7 @@ async function processSignal(signal) {
     equity,
     runtime: currentRuntimeState(),
     macro: macroSnapshot,
+    policy: policySnapshot,
     executions: result.executions,
     trades: result.closedTrade ? [result.closedTrade] : [],
     equityPoint
@@ -673,6 +725,21 @@ const server = http.createServer(async (req, res) => {
         runtime.macro.oil = await oilAdapter.fetchSnapshot();
       }
       return json(res, 200, runtime.macro?.oil || staleOilSnapshot("macro_not_initialized"));
+    }
+
+    if (req.method === "GET" && url.pathname === "/policy") {
+      if (policyEngine.isEnabled()) {
+        runtime.policy = await policyEngine.fetchPolicy({
+          oil: runtime.macro?.oil || null,
+          runtime: currentRuntimeState(),
+          signal: {
+            action: "MANUAL_CHECK",
+            leverage: config.defaultLeverage,
+            htfTrend: runtime.lastSignal?.htfTrend || "NEUTRAL"
+          }
+        });
+      }
+      return json(res, 200, runtime.policy || buildDisabledPolicy(config));
     }
 
     if (req.method === "POST" && url.pathname === "/webhook") {
