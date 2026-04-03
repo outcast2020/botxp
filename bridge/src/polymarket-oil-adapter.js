@@ -1,5 +1,9 @@
 const { nowIso, toNumber } = require("./utils");
 
+// This adapter is intentionally restricted to Polymarket public market data only.
+// It uses Gamma for market discovery and public CLOB endpoints for midpoint/history.
+// No Polymarket trading credentials are required or consumed by this project.
+
 function parseJsonArray(rawValue, fallback = []) {
   if (!rawValue) return fallback;
   try {
@@ -175,6 +179,8 @@ class PolymarketOilAdapter {
     if (!this.isEnabled()) {
       return {
         enabled: false,
+        accessMode: "public_market_data_only",
+        authRequired: false,
         macroRegime: "DISABLED",
         macroStressScore: 0,
         stale: false,
@@ -237,6 +243,8 @@ class PolymarketOilAdapter {
 
     const snapshot = {
       enabled: true,
+      accessMode: "public_market_data_only",
+      authRequired: false,
       eventSlug: event.slug,
       eventTitle: event.title,
       fetchedAt: nowIso(),

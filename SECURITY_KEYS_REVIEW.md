@@ -73,6 +73,11 @@ Mantenha independentes:
 
 Comprometimento de um nao deve derrubar todos os outros.
 
+Observacao:
+
+- para este projeto, a Polymarket pode operar em leitura publica somente
+- portanto, nao ha necessidade de armazenar credenciais da Polymarket na bridge
+
 ### 7. Logue sem vazar
 
 Permitido em logs:

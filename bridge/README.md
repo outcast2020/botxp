@@ -14,6 +14,8 @@ Bridge minima para:
 - valida `passphrase`, idade do sinal e duplicatas por `nonce`
 - opera em `One-way + Isolated`
 - consulta Polymarket como proxy macro de stress
+- usa apenas market data publica da Polymarket
+- nao usa API key, secret ou passphrase da Polymarket
 - pode consultar OpenAI para gerar policy JSON
 - suporta `dry-run` por padrao
 - grava estado e logs locais em `bridge/data`

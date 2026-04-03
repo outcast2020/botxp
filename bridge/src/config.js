@@ -145,6 +145,7 @@ const config = {
 
   polymarket: {
     enabled: asBoolean(env.POLYMARKET_ENABLED, true),
+    publicDataOnly: true,
     gammaBaseUrl: env.POLYMARKET_GAMMA_BASE_URL || "https://gamma-api.polymarket.com",
     clobBaseUrl: env.POLYMARKET_CLOB_BASE_URL || "https://clob.polymarket.com",
     eventSlug: env.POLYMARKET_EVENT_SLUG || "what-price-will-wti-hit-in-april-2026",

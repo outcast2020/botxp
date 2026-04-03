@@ -33,6 +33,7 @@ Documentos principais:
   - recebe sinais por webhook
   - valida risco, duplicatas, macro e policy
   - executa em backtest, dry-run ou live
+  - usa Polymarket apenas em leitura publica para risco macro
   - sincroniza `status`, `equity`, `runtime`, `macro`, `policy`, `trades` e `executions`
 - `apps-script/`
   - cria/configura a planilha

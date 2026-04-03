@@ -93,6 +93,7 @@ Uso operacional importante:
 - `Gamma API` e publica para descoberta de mercados
 - `Data API` e publica para dados agregados
 - `CLOB` publica ordem, midpoint, spreads e price history
+- o adapter deste projeto deve ficar em `public market data only`, sem credenciais da Polymarket
 - limites sao altos o suficiente para polling moderado, mas o bot nao deve abusar da frequencia
 
 ### DeepSeek
