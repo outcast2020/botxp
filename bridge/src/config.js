@@ -107,6 +107,24 @@ const config = {
   backtestWarmupBars: asNumber(env.BACKTEST_WARMUP_BARS, 600),
   backtestDatasetForwardBars: asNumber(env.BACKTEST_DATASET_FORWARD_BARS, 15),
   backtestOutputPrefix: env.BACKTEST_OUTPUT_PREFIX || "backtest",
+  backtest: {
+    sideMode: (env.BACKTEST_SIDE_MODE || "BOTH").toUpperCase(),
+    sessionFilter: (env.BACKTEST_SESSION_FILTER || "OFF").toUpperCase(),
+    sessionStartHour: asNumber(env.BACKTEST_SESSION_START_HOUR, 9),
+    sessionEndHour: asNumber(env.BACKTEST_SESSION_END_HOUR, 18),
+    volumeLookback: asNumber(env.BACKTEST_VOLUME_LOOKBACK, 20),
+    minVolumeRatio: asNumber(env.BACKTEST_MIN_VOLUME_RATIO, 0.95),
+    minBodyPct: asNumber(env.BACKTEST_MIN_BODY_PCT, 0.08),
+    minHtfFastSlowGapPct: asNumber(env.BACKTEST_MIN_HTF_FAST_SLOW_GAP_PCT, 0.12),
+    minHtfCloseBaseGapPct: asNumber(env.BACKTEST_MIN_HTF_CLOSE_BASE_GAP_PCT, 0.25),
+    minLtfFastSlowGapPct: asNumber(env.BACKTEST_MIN_LTF_FAST_SLOW_GAP_PCT, 0.05),
+    minLtfSlowTrendGapPct: asNumber(env.BACKTEST_MIN_LTF_SLOW_TREND_GAP_PCT, 0.10),
+    minHtfRsiBull: asNumber(env.BACKTEST_MIN_HTF_RSI_BULL, 55),
+    maxHtfRsiBear: asNumber(env.BACKTEST_MAX_HTF_RSI_BEAR, 45),
+    longRsiBuffer: asNumber(env.BACKTEST_LONG_RSI_BUFFER, 4),
+    shortRsiBuffer: asNumber(env.BACKTEST_SHORT_RSI_BUFFER, 4),
+    requireTrendCandle: asBoolean(env.BACKTEST_REQUIRE_TREND_CANDLE, true)
+  },
 
   strategy: {
     emaFastLen: asNumber(env.EMA_FAST_LEN, 9),

@@ -16,6 +16,7 @@ function parseTimeInput(value) {
 
 function buildIndicatorBundle(candles, strategyConfig) {
   const closes = candles.map((candle) => candle.close);
+  const volumes = candles.map((candle) => candle.volume);
   const emaFast = emaSeries(closes, strategyConfig.emaFastLen);
   const emaSlow = emaSeries(closes, strategyConfig.emaSlowLen);
   const emaTrend = emaSeries(closes, strategyConfig.emaTrendLen);
@@ -23,6 +24,7 @@ function buildIndicatorBundle(candles, strategyConfig) {
   const bbStdDev = stdDevSeries(closes, strategyConfig.bbLen);
   const rsi = rsiSeries(closes, strategyConfig.rsiLen);
   const atr = atrSeries(candles, strategyConfig.atrLen);
+  const volumeSma = smaSeries(volumes, config.backtest.volumeLookback);
 
   return candles.map((candle, index) => {
     const basis = bbBasis[index];
@@ -30,18 +32,28 @@ function buildIndicatorBundle(candles, strategyConfig) {
     const upper = basis != null && deviation != null ? basis + (deviation * strategyConfig.bbDev) : null;
     const lower = basis != null && deviation != null ? basis - (deviation * strategyConfig.bbDev) : null;
     const atrValue = atr[index];
+    const fast = emaFast[index];
+    const slow = emaSlow[index];
+    const trend = emaTrend[index];
+    const volumeBasis = volumeSma[index];
 
     return {
+      open: candle.open,
       close: candle.close,
-      emaFast: emaFast[index],
-      emaSlow: emaSlow[index],
-      emaTrend: emaTrend[index],
+      emaFast: fast,
+      emaSlow: slow,
+      emaTrend: trend,
       bbBasis: basis,
       bbUpper: upper,
       bbLower: lower,
       rsi: rsi[index],
       atr: atrValue,
-      atrPct: atrValue != null && candle.close ? (atrValue / candle.close) * 100 : null
+      atrPct: atrValue != null && candle.close ? (atrValue / candle.close) * 100 : null,
+      fastSlowGapPct: fast != null && slow != null && candle.close ? (Math.abs(fast - slow) / candle.close) * 100 : null,
+      slowTrendGapPct: slow != null && trend != null && candle.close ? (Math.abs(slow - trend) / candle.close) * 100 : null,
+      volumeSma: volumeBasis,
+      volumeRatio: volumeBasis ? candle.volume / volumeBasis : null,
+      bodyPct: candle.close ? (Math.abs(candle.close - candle.open) / candle.close) * 100 : null
     };
   });
 }
@@ -90,6 +102,8 @@ function buildHtfSnapshotMap(oneMinuteCandles, htfCandles, strategyConfig) {
       slow,
       base,
       rsi: htfRsi,
+      fastSlowGapPct: close ? (Math.abs(fast - slow) / close) * 100 : null,
+      closeBaseGapPct: close ? (Math.abs(close - base) / close) * 100 : null,
       trend
     };
   }
@@ -212,6 +226,7 @@ function closePosition(state, candle, exitPrice, reason, feature) {
 }
 
 function buildFeature(candle, indicator, htf, action) {
+  var sessionOpen = isSessionOpen(candle.closeTime);
   return {
     timestamp: new Date(candle.closeTime).toISOString(),
     symbol: config.symbol,
@@ -224,8 +239,15 @@ function buildFeature(candle, indicator, htf, action) {
     bbLower: Number(indicator.bbLower.toFixed(8)),
     rsi: Number(indicator.rsi.toFixed(4)),
     atrPct: Number(indicator.atrPct.toFixed(4)),
+    bodyPct: Number(toNumber(indicator.bodyPct, 0).toFixed(4)),
+    volumeRatio: Number(toNumber(indicator.volumeRatio, 0).toFixed(4)),
+    fastSlowGapPct: Number(toNumber(indicator.fastSlowGapPct, 0).toFixed(4)),
+    slowTrendGapPct: Number(toNumber(indicator.slowTrendGapPct, 0).toFixed(4)),
     htfTrend: htf.trend,
     htfRsi: Number(htf.rsi.toFixed(4)),
+    htfFastSlowGapPct: Number(toNumber(htf.fastSlowGapPct, 0).toFixed(4)),
+    htfCloseBaseGapPct: Number(toNumber(htf.closeBaseGapPct, 0).toFixed(4)),
+    sessionOpen,
     action
   };
 }
@@ -284,31 +306,94 @@ function updateTrailingStop(position, candle, indicator, htfTrend) {
   }
 }
 
+function getHourInTimezone(timestamp) {
+  return Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: config.timezone,
+    hour: "2-digit",
+    hour12: false
+  }).format(new Date(timestamp)));
+}
+
+function isSessionOpen(timestamp) {
+  if (config.backtest.sessionFilter === "OFF") {
+    return true;
+  }
+
+  var hour = getHourInTimezone(timestamp);
+  var start = config.backtest.sessionStartHour;
+  var end = config.backtest.sessionEndHour;
+
+  if (start === end) return true;
+  if (start < end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
+}
+
+function isSideEnabled(side) {
+  var mode = config.backtest.sideMode;
+  if (mode === "LONG_ONLY") return side === "LONG";
+  if (mode === "SHORT_ONLY") return side === "SHORT";
+  return true;
+}
+
 function shouldEnterLong(candle, indicator, htf) {
+  var bullishCandle = candle.close > candle.open;
+  var volumeOk = indicator.volumeRatio == null || indicator.volumeRatio >= config.backtest.minVolumeRatio;
+  var bodyOk = indicator.bodyPct == null || indicator.bodyPct >= config.backtest.minBodyPct;
+  var ltfGapOk =
+    indicator.fastSlowGapPct >= config.backtest.minLtfFastSlowGapPct &&
+    indicator.slowTrendGapPct >= config.backtest.minLtfSlowTrendGapPct;
+  var htfGapOk =
+    htf.fastSlowGapPct >= config.backtest.minHtfFastSlowGapPct &&
+    htf.closeBaseGapPct >= config.backtest.minHtfCloseBaseGapPct;
+
   return (
+    isSideEnabled("LONG") &&
     indicator.emaFast > indicator.emaSlow &&
     indicator.emaSlow > indicator.emaTrend &&
     htf.trend === "BULL" &&
+    htf.rsi >= config.backtest.minHtfRsiBull &&
+    htfGapOk &&
+    ltfGapOk &&
+    volumeOk &&
+    bodyOk &&
+    (!config.backtest.requireTrendCandle || bullishCandle) &&
     indicator.atrPct >= config.strategy.minAtrPct &&
     indicator.atrPct <= config.strategy.maxAtrPct &&
     candle.low <= indicator.bbLower * 1.002 &&
     candle.close >= indicator.bbLower &&
     candle.close >= indicator.emaSlow &&
-    indicator.rsi <= config.strategy.longOversoldRsi + 6
+    indicator.rsi <= config.strategy.longOversoldRsi + config.backtest.longRsiBuffer
   );
 }
 
 function shouldEnterShort(candle, indicator, htf) {
+  var bearishCandle = candle.close < candle.open;
+  var volumeOk = indicator.volumeRatio == null || indicator.volumeRatio >= config.backtest.minVolumeRatio;
+  var bodyOk = indicator.bodyPct == null || indicator.bodyPct >= config.backtest.minBodyPct;
+  var ltfGapOk =
+    indicator.fastSlowGapPct >= config.backtest.minLtfFastSlowGapPct &&
+    indicator.slowTrendGapPct >= config.backtest.minLtfSlowTrendGapPct;
+  var htfGapOk =
+    htf.fastSlowGapPct >= config.backtest.minHtfFastSlowGapPct &&
+    htf.closeBaseGapPct >= config.backtest.minHtfCloseBaseGapPct;
+
   return (
+    isSideEnabled("SHORT") &&
     indicator.emaFast < indicator.emaSlow &&
     indicator.emaSlow < indicator.emaTrend &&
     htf.trend === "BEAR" &&
+    htf.rsi <= config.backtest.maxHtfRsiBear &&
+    htfGapOk &&
+    ltfGapOk &&
+    volumeOk &&
+    bodyOk &&
+    (!config.backtest.requireTrendCandle || bearishCandle) &&
     indicator.atrPct >= config.strategy.minAtrPct &&
     indicator.atrPct <= config.strategy.maxAtrPct &&
     candle.high >= indicator.bbUpper * 0.998 &&
     candle.close <= indicator.bbUpper &&
     candle.close <= indicator.emaSlow &&
-    indicator.rsi >= config.strategy.shortOverboughtRsi - 6
+    indicator.rsi >= config.strategy.shortOverboughtRsi - config.backtest.shortRsiBuffer
   );
 }
 
@@ -426,7 +511,7 @@ async function main() {
       }
     }
 
-    if (!state.position && !shouldSkipByRisk(state, candle.closeTime)) {
+    if (!state.position && !shouldSkipByRisk(state, candle.closeTime) && isSessionOpen(candle.closeTime)) {
       if (shouldEnterLong(candle, indicator, htf)) {
         const qty = roundToStepDown((config.orderBudgetUsdt * config.defaultLeverage) / candle.close, 1);
         if (qty >= 1) {
@@ -467,6 +552,18 @@ async function main() {
     symbol: config.symbol,
     timeframe: config.timeframe,
     htfTimeframe: config.htfTimeframe,
+    filters: {
+      sideMode: config.backtest.sideMode,
+      sessionFilter: config.backtest.sessionFilter,
+      sessionStartHour: config.backtest.sessionStartHour,
+      sessionEndHour: config.backtest.sessionEndHour,
+      minVolumeRatio: config.backtest.minVolumeRatio,
+      minBodyPct: config.backtest.minBodyPct,
+      minHtfFastSlowGapPct: config.backtest.minHtfFastSlowGapPct,
+      minHtfCloseBaseGapPct: config.backtest.minHtfCloseBaseGapPct,
+      minLtfFastSlowGapPct: config.backtest.minLtfFastSlowGapPct,
+      minLtfSlowTrendGapPct: config.backtest.minLtfSlowTrendGapPct
+    },
     range: {
       start: new Date(startTime).toISOString(),
       end: new Date(endTime).toISOString()
