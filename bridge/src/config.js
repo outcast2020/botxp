@@ -91,6 +91,16 @@ const config = {
   appsScriptSyncToken: env.APPS_SCRIPT_SYNC_TOKEN || "",
   appsScriptSyncTimeoutMs: asNumber(env.APPS_SCRIPT_SYNC_TIMEOUT_MS, 3500),
 
+  polymarket: {
+    enabled: asBoolean(env.POLYMARKET_ENABLED, true),
+    gammaBaseUrl: env.POLYMARKET_GAMMA_BASE_URL || "https://gamma-api.polymarket.com",
+    clobBaseUrl: env.POLYMARKET_CLOB_BASE_URL || "https://clob.polymarket.com",
+    eventSlug: env.POLYMARKET_EVENT_SLUG || "what-price-will-wti-hit-in-april-2026",
+    refreshMs: asNumber(env.POLYMARKET_REFRESH_MS, 60000),
+    staleMs: asNumber(env.POLYMARKET_STALE_MS, 90000),
+    hardBlockScore: asNumber(env.POLYMARKET_HARD_BLOCK_SCORE, 0.9)
+  },
+
   backtestStart: env.BACKTEST_START || "",
   backtestEnd: env.BACKTEST_END || "",
   backtestLookbackDays: asNumber(env.BACKTEST_LOOKBACK_DAYS, 21),

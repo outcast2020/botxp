@@ -85,28 +85,35 @@ fmtSmall(value) =>
     str.tostring(value, "#.####")
 
 buildPayload(action, reason, qtyValue) =>
-    "{" +
-    "\"passphrase\":\"" + passphrase + "\"," +
-    "\"source\":\"tradingview\"," +
-    "\"strategy_id\":\"" + strategyId + "\"," +
-    "\"action\":\"" + action + "\"," +
-    "\"symbol\":\"" + syminfo.ticker + "\"," +
-    "\"market\":\"usds_m_futures\"," +
-    "\"interval\":\"" + timeframe.period + "\"," +
-    "\"bar_time\":" + str.tostring(time) + "," +
-    "\"price\":\"" + fmtPrice(close) + "\"," +
-    "\"leverage\":\"" + str.tostring(leverageInput) + "\"," +
-    "\"margin_mode\":\"ISOLATED\"," +
-    "\"position_mode\":\"ONE_WAY\"," +
-    "\"order_budget_usdt\":\"" + fmtSmall(budgetUsdt) + "\"," +
-    "\"qty_hint\":\"" + str.tostring(qtyValue) + "\"," +
-    "\"rsi\":\"" + fmtSmall(rsiValue) + "\"," +
-    "\"atr_pct\":\"" + fmtSmall(atrPct) + "\"," +
-    "\"htf_trend\":\"" + (htfBull ? "BULL" : htfBear ? "BEAR" : "NEUTRAL") + "\"," +
-    "\"htf_rsi\":\"" + fmtSmall(htfRsi) + "\"," +
-    "\"reason\":\"" + reason + "\"," +
-    "\"nonce\":\"" + strategyId + "-" + str.tostring(time) + "-" + action + "\"" +
-    "}"
+    htfTrendLabel = "NEUTRAL"
+    if htfBull
+        htfTrendLabel := "BULL"
+    else if htfBear
+        htfTrendLabel := "BEAR"
+
+    payload = "{"
+    payload := payload + "\"passphrase\":\"" + passphrase + "\","
+    payload := payload + "\"source\":\"tradingview\","
+    payload := payload + "\"strategy_id\":\"" + strategyId + "\","
+    payload := payload + "\"action\":\"" + action + "\","
+    payload := payload + "\"symbol\":\"" + syminfo.ticker + "\","
+    payload := payload + "\"market\":\"usds_m_futures\","
+    payload := payload + "\"interval\":\"" + timeframe.period + "\","
+    payload := payload + "\"bar_time\":" + str.tostring(time) + ","
+    payload := payload + "\"price\":\"" + fmtPrice(close) + "\","
+    payload := payload + "\"leverage\":\"" + str.tostring(leverageInput) + "\","
+    payload := payload + "\"margin_mode\":\"ISOLATED\","
+    payload := payload + "\"position_mode\":\"ONE_WAY\","
+    payload := payload + "\"order_budget_usdt\":\"" + fmtSmall(budgetUsdt) + "\","
+    payload := payload + "\"qty_hint\":\"" + str.tostring(qtyValue) + "\","
+    payload := payload + "\"rsi\":\"" + fmtSmall(rsiValue) + "\","
+    payload := payload + "\"atr_pct\":\"" + fmtSmall(atrPct) + "\","
+    payload := payload + "\"htf_trend\":\"" + htfTrendLabel + "\","
+    payload := payload + "\"htf_rsi\":\"" + fmtSmall(htfRsi) + "\","
+    payload := payload + "\"reason\":\"" + reason + "\","
+    payload := payload + "\"nonce\":\"" + strategyId + "-" + str.tostring(time) + "-" + action + "\""
+    payload := payload + "}"
+    payload
 
 longEntrySignal = longSetup and cooldownOk and strategy.position_size <= 0 and qtyHint >= 1
 shortEntrySignal = shortSetup and cooldownOk and strategy.position_size >= 0 and qtyHint >= 1
@@ -144,48 +151,40 @@ longStopLossHit = strategy.position_size > 0 and low <= activeLongStop
 longMomentumExit = strategy.position_size > 0 and close >= bbBasis and rsiValue > longExitRsi and not htfBull
 longTrendBreakExit = strategy.position_size > 0 and (close < emaSlow or htfBear)
 longExitSignal = longTakeProfitHit or longStopLossHit or longMomentumExit or longTrendBreakExit
-longExitReason = longTakeProfitHit ? "long_take_profit_context_weak" : longStopLossHit ? "long_trailing_stop" : longTrendBreakExit ? "long_trend_break" : "long_mean_revert_exit"
+longExitReason = "long_mean_revert_exit"
+if longTakeProfitHit
+    longExitReason := "long_take_profit_context_weak"
+else if longStopLossHit
+    longExitReason := "long_trailing_stop"
+else if longTrendBreakExit
+    longExitReason := "long_trend_break"
 
 shortTakeProfitHit = strategy.position_size < 0 and close <= strategy.position_avg_price * (1 - takeProfitPct / 100) and not htfBear
 shortStopLossHit = strategy.position_size < 0 and high >= activeShortStop
 shortMomentumExit = strategy.position_size < 0 and close <= bbBasis and rsiValue < shortExitRsi and not htfBear
 shortTrendBreakExit = strategy.position_size < 0 and (close > emaSlow or htfBull)
 shortExitSignal = shortTakeProfitHit or shortStopLossHit or shortMomentumExit or shortTrendBreakExit
-shortExitReason = shortTakeProfitHit ? "short_take_profit_context_weak" : shortStopLossHit ? "short_trailing_stop" : shortTrendBreakExit ? "short_trend_break" : "short_mean_revert_exit"
+shortExitReason = "short_mean_revert_exit"
+if shortTakeProfitHit
+    shortExitReason := "short_take_profit_context_weak"
+else if shortStopLossHit
+    shortExitReason := "short_trailing_stop"
+else if shortTrendBreakExit
+    shortExitReason := "short_trend_break"
 
 if longExitSignal
-    strategy.close(
-         "LONG",
-         comment = "tv_flat_exit_long",
-         alert_message = buildPayload("FLAT_EXIT", longExitReason, math.abs(strategy.position_size))
-     )
+    strategy.close("LONG", comment = "tv_flat_exit_long", alert_message = buildPayload("FLAT_EXIT", longExitReason, math.abs(strategy.position_size)))
 
 if shortExitSignal
-    strategy.close(
-         "SHORT",
-         comment = "tv_flat_exit_short",
-         alert_message = buildPayload("FLAT_EXIT", shortExitReason, math.abs(strategy.position_size))
-     )
+    strategy.close("SHORT", comment = "tv_flat_exit_short", alert_message = buildPayload("FLAT_EXIT", shortExitReason, math.abs(strategy.position_size)))
 
 if longEntrySignal
     lastSignalBar := bar_index
-    strategy.entry(
-         "LONG",
-         strategy.long,
-         qty = qtyHint,
-         comment = "tv_long_entry",
-         alert_message = buildPayload("LONG_ENTRY", "long_dip_reclaim", qtyHint)
-     )
+    strategy.entry("LONG", strategy.long, qty = qtyHint, comment = "tv_long_entry", alert_message = buildPayload("LONG_ENTRY", "long_dip_reclaim", qtyHint))
 
 if shortEntrySignal
     lastSignalBar := bar_index
-    strategy.entry(
-         "SHORT",
-         strategy.short,
-         qty = qtyHint,
-         comment = "tv_short_entry",
-         alert_message = buildPayload("SHORT_ENTRY", "short_spike_fade", qtyHint)
-     )
+    strategy.entry("SHORT", strategy.short, qty = qtyHint, comment = "tv_short_entry", alert_message = buildPayload("SHORT_ENTRY", "short_spike_fade", qtyHint))
 
 plot(emaFast, "EMA Fast", color = color.new(color.green, 0), linewidth = 2)
 plot(emaSlow, "EMA Slow", color = color.new(color.orange, 0), linewidth = 2)

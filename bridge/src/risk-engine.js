@@ -8,8 +8,9 @@ function resetDailyIfNeeded(runtime, config, timestamp = Date.now()) {
   }
 }
 
-function evaluateSignal(runtime, signal, config) {
+function evaluateSignal(runtime, signal, config, context = {}) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
+  const oil = context.oil || runtime.macro?.oil || null;
 
   if (runtime.recentNonces.includes(signal.nonce)) {
     return { ok: false, ignored: true, reason: "duplicate_nonce" };
@@ -29,6 +30,20 @@ function evaluateSignal(runtime, signal, config) {
   }
 
   if (signal.action !== "FLAT_EXIT") {
+    if (config.polymarket?.enabled) {
+      if (!oil || oil.enabled === false) {
+        return { ok: false, ignored: true, reason: "macro_snapshot_missing" };
+      }
+
+      if (oil.stale) {
+        return { ok: false, ignored: true, reason: "macro_snapshot_stale" };
+      }
+
+      if (toNumber(oil.macroStressScore, 0) >= config.polymarket.hardBlockScore) {
+        return { ok: false, ignored: true, reason: "macro_risk_lock" };
+      }
+    }
+
     if (runtime.daily.stopActive) {
       return { ok: false, ignored: true, reason: "daily_stop_active" };
     }
@@ -121,13 +136,14 @@ function updateEquitySeries(runtime, snapshot, regime, config) {
   return point;
 }
 
-function buildStatusPayload(runtime, snapshot, config) {
+function buildStatusPayload(runtime, snapshot, config, context = {}) {
   const initialCapital = config.initialCapitalUsdt;
   const totalEquity = toNumber(snapshot.totalEquity, initialCapital);
   const winRate = runtime.totals.closedTrades
     ? runtime.totals.wins / runtime.totals.closedTrades
     : 0;
   const marketRegime = runtime.lastSignal?.htfTrend || "NEUTRAL";
+  const oil = context.oil || runtime.macro?.oil || null;
   const trendBias =
     runtime.position.side !== "FLAT"
       ? runtime.position.side
@@ -153,6 +169,17 @@ function buildStatusPayload(runtime, snapshot, config) {
       totalTrades: runtime.totals.closedTrades,
       avgWinRate: Number(winRate.toFixed(4))
     },
+    macro: oil
+      ? {
+          enabled: Boolean(oil.enabled),
+          regime: oil.macroRegime || "UNKNOWN",
+          stressScore: Number(toNumber(oil.macroStressScore, 0).toFixed(4)),
+          stale: Boolean(oil.stale),
+          eventSlug: oil.eventSlug || null,
+          updatedAt: oil.updatedAt || oil.fetchedAt || null,
+          volume24hr: Number(toNumber(oil.volume24hr, 0).toFixed(2))
+        }
+      : null,
     bots: [
       {
         name: "doge_futures_bridge",

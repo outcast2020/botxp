@@ -8,6 +8,7 @@ Bridge minima para receber webhooks do TradingView, decidir risco, executar `DOG
 - recebe `LONG_ENTRY`, `SHORT_ENTRY` e `FLAT_EXIT`
 - valida `passphrase`, idade do sinal e duplicatas por `nonce`
 - opera em `One-way + Isolated`
+- consulta a Polymarket para um proxy macro de stress no mercado de oil
 - suporta `dry-run` por padrao
 - registra estado e logs locais em `bridge/data`
 - sincroniza `status` e `equity` com o Apps Script, se configurado
@@ -59,6 +60,7 @@ O arquivo `training-samples.jsonl` serve como base para comparar features, rotul
 
 - `GET /health`
 - `GET /state`
+- `GET /macro/oil`
 - `POST /webhook`
 
 ## Virando para live
@@ -77,6 +79,7 @@ Se voce preencher `APPS_SCRIPT_SYNC_URL`, a bridge envia:
 - `status`
 - `equity`
 - `runtime`
+- `macro`
 - `executions`
 - `trades`
 

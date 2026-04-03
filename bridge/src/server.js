@@ -1,6 +1,7 @@
 const http = require("http");
 const { config } = require("./config");
 const { BinanceApiError, BinanceFuturesClient } = require("./binance-futures-client");
+const { PolymarketOilAdapter } = require("./polymarket-oil-adapter");
 const {
   buildEquityPayload,
   buildStatusPayload,
@@ -25,6 +26,7 @@ const {
 
 const runtime = loadRuntime(config);
 const client = config.dryRun ? null : new BinanceFuturesClient(config);
+const oilAdapter = new PolymarketOilAdapter(config);
 
 let symbolRules = {
   symbol: config.symbol,
@@ -144,6 +146,17 @@ async function bootstrap() {
     runtime.lastError = `Falha ao carregar filtros do simbolo: ${error.message}`;
     saveRuntime(config, runtime);
   }
+
+  if (oilAdapter.isEnabled()) {
+    try {
+      runtime.macro = runtime.macro || {};
+      runtime.macro.oil = await oilAdapter.fetchSnapshot({ force: true });
+      saveRuntime(config, runtime);
+    } catch (error) {
+      runtime.lastError = `Falha ao carregar macro oil: ${error.message}`;
+      saveRuntime(config, runtime);
+    }
+  }
 }
 
 function currentRuntimeState() {
@@ -157,7 +170,37 @@ function currentRuntimeState() {
     lastSignal: runtime.lastSignal,
     lastError: runtime.lastError,
     lastSyncAt: runtime.lastSyncAt,
-    symbolRules
+    symbolRules,
+    macro: runtime.macro || {
+      oil: {
+        enabled: false,
+        macroRegime: "DISABLED",
+        macroStressScore: 0,
+        stale: false,
+        oilMarkets: []
+      }
+    }
+  };
+}
+
+function staleOilSnapshot(errorMessage) {
+  const previous = runtime.macro?.oil || null;
+  const fetchedAt = previous?.fetchedAt || nowIso();
+  return {
+    enabled: Boolean(config.polymarket?.enabled),
+    eventSlug: config.polymarket?.eventSlug || null,
+    eventTitle: previous?.eventTitle || "WTI proxy",
+    fetchedAt,
+    updatedAt: previous?.updatedAt || fetchedAt,
+    volume: toNumber(previous?.volume, 0),
+    volume24hr: toNumber(previous?.volume24hr, 0),
+    liquidity: toNumber(previous?.liquidity, 0),
+    macroStressScore: toNumber(previous?.macroStressScore, 1),
+    macroRegime: previous?.macroRegime || "STALE",
+    oilMarkets: Array.isArray(previous?.oilMarkets) ? previous.oilMarkets : [],
+    ageMs: config.polymarket?.staleMs ? config.polymarket.staleMs + 1 : 0,
+    stale: true,
+    fetchError: errorMessage
   };
 }
 
@@ -505,12 +548,28 @@ async function processLive(signal) {
 
 async function processSignal(signal) {
   resetDailyIfNeeded(runtime, config, signal.receivedAt);
+  runtime.macro = runtime.macro || {};
 
-  const decision = evaluateSignal(runtime, signal, config);
+  let macroSnapshot = runtime.macro.oil || null;
+  if (oilAdapter.isEnabled()) {
+    try {
+      macroSnapshot = await oilAdapter.fetchSnapshot({ force: signal.action !== "FLAT_EXIT" });
+      runtime.macro.oil = macroSnapshot;
+    } catch (error) {
+      runtime.lastError = `Falha Polymarket oil: ${error.message}`;
+      macroSnapshot = staleOilSnapshot(error.message);
+      runtime.macro.oil = macroSnapshot;
+    }
+  }
+
+  const decision = evaluateSignal(runtime, signal, config, {
+    oil: macroSnapshot
+  });
   appendJsonl(config, "signals.jsonl", {
     timestamp: nowIso(),
     signal,
-    decision
+    decision,
+    macro: macroSnapshot
   });
 
   if (!decision.ok) {
@@ -518,7 +577,9 @@ async function processSignal(signal) {
       trackNonce(runtime, signal, config);
     }
     const snapshot = config.dryRun ? markDryRunSnapshot(signal.price) : await buildLiveSnapshot();
-    const status = buildStatusPayload(runtime, snapshot, config);
+    const status = buildStatusPayload(runtime, snapshot, config, {
+      oil: macroSnapshot
+    });
     const equity = buildEquityPayload(runtime, config);
     saveRuntime(config, runtime);
     return {
@@ -535,7 +596,9 @@ async function processSignal(signal) {
   const result = config.dryRun ? await processDryRun(signal) : await processLive(signal);
   const regime = signal.htfTrend || "NEUTRAL";
   const equityPoint = updateEquitySeries(runtime, result.snapshot, regime, config);
-  const status = buildStatusPayload(runtime, result.snapshot, config);
+  const status = buildStatusPayload(runtime, result.snapshot, config, {
+    oil: macroSnapshot
+  });
   const equity = buildEquityPayload(runtime, config);
 
   result.executions.forEach((entry) => appendJsonl(config, "executions.jsonl", entry));
@@ -547,6 +610,7 @@ async function processSignal(signal) {
     status,
     equity,
     runtime: currentRuntimeState(),
+    macro: macroSnapshot,
     executions: result.executions,
     trades: result.closedTrade ? [result.closedTrade] : [],
     equityPoint
@@ -601,6 +665,14 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/state") {
       return json(res, 200, currentRuntimeState());
+    }
+
+    if (req.method === "GET" && url.pathname === "/macro/oil") {
+      if (oilAdapter.isEnabled()) {
+        runtime.macro = runtime.macro || {};
+        runtime.macro.oil = await oilAdapter.fetchSnapshot();
+      }
+      return json(res, 200, runtime.macro?.oil || staleOilSnapshot("macro_not_initialized"));
     }
 
     if (req.method === "POST" && url.pathname === "/webhook") {

@@ -49,6 +49,16 @@ function createRuntime(config) {
     lastError: null,
     lastSyncAt: null,
     recentNonces: [],
+    macro: {
+      oil: {
+        enabled: Boolean(config.polymarket?.enabled),
+        macroRegime: config.polymarket?.enabled ? "BOOTING" : "DISABLED",
+        macroStressScore: 0,
+        stale: Boolean(config.polymarket?.enabled),
+        fetchedAt: null,
+        oilMarkets: []
+      }
+    },
     position: {
       side: "FLAT",
       qty: 0,
