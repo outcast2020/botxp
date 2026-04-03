@@ -112,34 +112,65 @@ function render(bundle, baseUrl) {
   const equity = bundle.equity || { series: [] };
   const runtime = bundle.runtime || {};
   const config = bundle.config || {};
+  const macro = status.macro || bundle.macro || runtime.macro?.oil || {};
+  const policy = status.policy || bundle.policy || runtime.policy || {};
   const wallet = runtime.wallet || {};
   const position = runtime.position || {};
   const lastSignal = runtime.lastSignal || {};
+  const riskMarkers = macro.riskMarkers || {};
 
   $("updatedAt").textContent = status.timestamp ? new Date(status.timestamp).toLocaleString("pt-BR") : "-";
-  $("webAppLabel").innerHTML = `<a href="${baseUrl}" target="_blank">Abrir Web App</a>`;
+  $("webAppLabel").innerHTML = `<a href="${baseUrl}" target="_blank" rel="noopener noreferrer">Abrir Web App</a>`;
   $("sheetLink").innerHTML = config.spreadsheetUrl
-    ? `<a href="${config.spreadsheetUrl}" target="_blank">Abrir planilha</a>`
+    ? `<a href="${config.spreadsheetUrl}" target="_blank" rel="noopener noreferrer">Abrir planilha</a>`
     : "Nao configurada";
   $("statusDot").className = "dot online";
   $("statusText").textContent = "Conectado";
-  $("equityTotal").textContent = usdt(status.summary?.currentEquity);
+  $("equityTotal").textContent = usdt(status.summary?.currentEquity || wallet.totalEquity || 0);
   $("equityPnl").textContent = `PnL ${pct(status.summary?.pnlPercent || 0)}`;
   $("marketRegime").textContent = status.marketRegime || "-";
   $("preferredStrategy").textContent = `Estrategia: ${status.preferredStrategy || "-"}`;
-  $("totalTrades").textContent = String(status.summary?.totalTrades ?? 0);
+  $("macroRegime").textContent = macro.macroRegime || macro.regime || "UNKNOWN";
+  $("macroStress").textContent = `Stress ${Number(macro.macroStressScore || macro.stressScore || 0).toFixed(4)}`;
+  $("policyMode").textContent = policy.riskMode || "NEUTRAL";
+  $("policyAllowed").textContent = `Allowed ${policy.allowedSide || "BOTH"}`;
+  $("totalTrades").textContent = String(status.summary?.totalTrades ?? runtime.totals?.closedTrades ?? 0);
   $("avgWinRate").textContent = `Win rate ${pctFromDecimal(status.summary?.avgWinRate || 0)}`;
   $("positionState").textContent = position.side || "FLAT";
-  $("runtimeMeta").textContent = `Leverage ${Number(wallet.effectiveLeverage || 0).toFixed(2)}x`;
+  $("runtimeMeta").textContent = `Leverage ${Number(wallet.effectiveLeverage || position.leverage || 0).toFixed(2)}x`;
+  $("policyNoTrade").textContent = policy.noTrade ? "SIM" : "NAO";
+  $("policyConfidence").textContent = `Confianca ${pctFromDecimal(policy.confidence || 0)}`;
   $("symbolMeta").textContent = `${status.symbol || config.symbol || "-"} / ${status.timeframe || config.timeframe || "-"}`;
   $("equityMeta").textContent = `${equity.series?.length || 0} pontos`;
   $("lastPrice").textContent = Number(status.price || wallet.markPrice || 0).toLocaleString("pt-BR");
-  $("trendBias").textContent = status.trendBias || "-";
+  $("trendBias").textContent = `Tendencia: ${status.trendBias || "-"}`;
   $("positionQty").textContent = Number(position.qty || 0).toFixed(4);
   $("marginUsed").textContent = usdt(wallet.marginUsed || 0);
   $("unrealizedPnl").textContent = usdt(wallet.unrealizedPnl || 0);
   $("lastSignal").textContent = lastSignal.action ? `${lastSignal.action} (${lastSignal.nonce || "-"})` : "-";
   $("lastError").textContent = runtime.lastError || "-";
+  $("policyLeverage").textContent = `${Number(policy.leverageCap || 0).toFixed(2)}x`;
+  $("policyHold").textContent = policy.holdPolicy || "NORMAL";
+
+  $("macroEvent").textContent = macro.eventSlug || "-";
+  $("macroUpdatedAt").textContent = macro.updatedAt ? new Date(macro.updatedAt).toLocaleString("pt-BR") : "-";
+  $("macroVolume24h").textContent = Number(macro.volume24hr || 0).toLocaleString("pt-BR");
+  $("macroHigh120").textContent = pctFromDecimal(riskMarkers.high120 || 0);
+  $("macroHigh130").textContent = pctFromDecimal(riskMarkers.high130 || 0);
+  $("macroHigh140").textContent = pctFromDecimal(riskMarkers.high140 || 0);
+  $("macroChange15m").textContent = pctFromDecimal(riskMarkers.avgChange15m || 0);
+  $("policyAllowedSide").textContent = policy.allowedSide || "BOTH";
+  $("policyStop").textContent = policy.stopProfile || "NORMAL";
+  $("policySession").textContent = policy.sessionFilter === "CUSTOM"
+    ? `${policy.sessionStartHour}:00 - ${policy.sessionEndHour}:00`
+    : (policy.sessionFilter || "OFF");
+  $("policyNotes").textContent = policy.notes || "-";
+
+  const overviewUrl = config.coinglassOverviewUrl || "https://www.coinglass.com/currencies/DOGE";
+  const oiUrl = config.coinglassOiUrl || "https://www.coinglass.com/open-interest/DOGE";
+  $("coinglassFrame").src = overviewUrl;
+  $("coinglassOverviewLink").href = overviewUrl;
+  $("coinglassOiLink").href = oiUrl;
 
   const trades = status.recentTrades || [];
   $("tradesTable").innerHTML = trades.length
@@ -162,7 +193,7 @@ function renderError(message, baseUrl) {
   $("statusDot").className = "dot offline";
   $("statusText").textContent = "Falha ao ler o Web App";
   $("updatedAt").textContent = "-";
-  $("webAppLabel").innerHTML = `<a href="${baseUrl}" target="_blank">Abrir Web App</a>`;
+  $("webAppLabel").innerHTML = `<a href="${baseUrl}" target="_blank" rel="noopener noreferrer">Abrir Web App</a>`;
   $("lastError").textContent = message;
 }
 
@@ -171,14 +202,16 @@ async function refresh() {
   $("baseUrlInput").value = baseUrl;
 
   try {
-    const [status, equity, runtime, config] = await Promise.all([
+    const [status, equity, runtime, config, macro, policy] = await Promise.all([
       fetchJson(baseUrl, "status"),
       fetchJson(baseUrl, "equity"),
       fetchJson(baseUrl, "runtime"),
-      fetchJson(baseUrl, "config")
+      fetchJson(baseUrl, "config"),
+      fetchJson(baseUrl, "macro"),
+      fetchJson(baseUrl, "policy")
     ]);
 
-    render({ status, equity, runtime, config }, baseUrl);
+    render({ status, equity, runtime, config, macro, policy }, baseUrl);
   } catch (error) {
     renderError(error.message, baseUrl);
     console.error(error);

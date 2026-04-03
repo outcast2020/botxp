@@ -30,8 +30,105 @@ var STATE_KEYS = {
   equity: "paper_trading_equity_payload",
   spreadsheetId: "paper_trading_spreadsheet_id",
   bridgeRuntime: "paper_trading_bridge_runtime_payload",
+  bridgeMacro: "paper_trading_bridge_macro_payload",
+  bridgePolicy: "paper_trading_bridge_policy_payload",
   bridgeSyncToken: "paper_trading_bridge_sync_token"
 };
+
+function defaultStatusPayload_() {
+  return {
+    timestamp: new Date().toISOString(),
+    symbol: CONFIG.symbol,
+    timeframe: CONFIG.interval,
+    marketRegime: "CHAOS",
+    preferredStrategy: "none",
+    trendBias: "FLAT",
+    price: 0,
+    macro: null,
+    policy: null,
+    summary: {
+      initialCapital: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
+      currentEquity: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
+      pnl: 0,
+      pnlPercent: 0,
+      totalTrades: 0,
+      avgWinRate: 0
+    },
+    bots: [],
+    recentTrades: []
+  };
+}
+
+function defaultEquityPayload_() {
+  return {
+    symbol: CONFIG.symbol,
+    timeframe: CONFIG.interval,
+    series: []
+  };
+}
+
+function defaultMacroPayload_() {
+  return {
+    enabled: false,
+    eventSlug: null,
+    eventTitle: null,
+    fetchedAt: null,
+    updatedAt: null,
+    volume: 0,
+    volume24hr: 0,
+    liquidity: 0,
+    macroStressScore: 0,
+    macroRegime: "UNKNOWN",
+    oilMarkets: [],
+    riskMarkers: {},
+    ageMs: 0,
+    stale: true,
+    fetchError: null
+  };
+}
+
+function defaultPolicyPayload_() {
+  return {
+    enabled: false,
+    source: "bootstrap",
+    required: false,
+    fetchedAt: null,
+    stale: true,
+    riskMode: "NEUTRAL",
+    allowedSide: "BOTH",
+    leverageCap: 0,
+    stopProfile: "NORMAL",
+    holdPolicy: "NORMAL",
+    sessionFilter: "OFF",
+    sessionStartHour: 0,
+    sessionEndHour: 24,
+    confidence: 0,
+    noTrade: false,
+    notes: "policy_not_loaded"
+  };
+}
+
+function defaultBridgeRuntimePayload_() {
+  return {
+    mode: "idle",
+    position: { side: "FLAT", qty: 0, entryPrice: 0, leverage: 0 },
+    wallet: {
+      walletBalance: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
+      availableBalance: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
+      marginUsed: 0,
+      unrealizedPnl: 0,
+      totalEquity: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
+      effectiveLeverage: 0,
+      markPrice: 0
+    },
+    daily: { realizedPnl: 0, stopActive: false, entryCount: 0 },
+    totals: { realizedPnl: 0, closedTrades: 0 },
+    lastSignal: null,
+    lastError: null,
+    macro: { oil: defaultMacroPayload_() },
+    policy: defaultPolicyPayload_()
+  };
+}
 
 function mean(values) {
   if (!values || !values.length) return 0;
@@ -661,17 +758,19 @@ function doGet(e) {
   }
 
   if (view === "equity") {
-    return jsonResponse(readPayload(STATE_KEYS.equity, { symbol: CONFIG.symbol, timeframe: CONFIG.interval, series: [] }));
+    return jsonResponse(readPayload(STATE_KEYS.equity, defaultEquityPayload_()));
   }
 
   if (view === "runtime") {
-    return jsonResponse(readPayload(STATE_KEYS.bridgeRuntime, {
-      mode: "idle",
-      position: { side: "FLAT", qty: 0, entryPrice: 0 },
-      wallet: { totalEquity: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length },
-      lastSignal: null,
-      lastError: null
-    }));
+    return jsonResponse(readPayload(STATE_KEYS.bridgeRuntime, defaultBridgeRuntimePayload_()));
+  }
+
+  if (view === "macro") {
+    return jsonResponse(readPayload(STATE_KEYS.bridgeMacro, defaultMacroPayload_()));
+  }
+
+  if (view === "policy") {
+    return jsonResponse(readPayload(STATE_KEYS.bridgePolicy, defaultPolicyPayload_()));
   }
 
   if (view === "health") {
@@ -681,7 +780,9 @@ function doGet(e) {
       timestamp: new Date().toISOString(),
       symbol: CONFIG.symbol,
       timeframe: CONFIG.interval,
-      spreadsheetUrl: getSpreadsheetUrl()
+      spreadsheetUrl: getSpreadsheetUrl(),
+      hasMacro: Boolean(readPayload(STATE_KEYS.bridgeMacro, null)),
+      hasPolicy: Boolean(readPayload(STATE_KEYS.bridgePolicy, null))
     });
   }
 
@@ -690,29 +791,14 @@ function doGet(e) {
       symbol: CONFIG.symbol,
       timeframe: CONFIG.interval,
       spreadsheetId: getSpreadsheetId(),
-      spreadsheetUrl: getSpreadsheetUrl()
+      spreadsheetUrl: getSpreadsheetUrl(),
+      coinglassOverviewUrl: "https://www.coinglass.com/currencies/DOGE",
+      coinglassOiUrl: "https://www.coinglass.com/open-interest/DOGE"
     });
   }
 
   if (view === "status") {
-    return jsonResponse(readPayload(STATE_KEYS.status, {
-      timestamp: new Date().toISOString(),
-      symbol: CONFIG.symbol,
-      timeframe: CONFIG.interval,
-      marketRegime: "CHAOS",
-      preferredStrategy: "none",
-      trendBias: "FLAT",
-      price: 0,
-      summary: {
-        initialCapital: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
-        currentEquity: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
-        pnl: 0,
-        pnlPercent: 0,
-        totalTrades: 0,
-        avgWinRate: 0
-      },
-      bots: []
-    }));
+    return jsonResponse(readPayload(STATE_KEYS.status, defaultStatusPayload_()));
   }
 
   return dashboardHtmlOutput_();
@@ -731,36 +817,24 @@ function getDashboardBundle() {
       symbol: CONFIG.symbol,
       timeframe: CONFIG.interval,
       spreadsheetId: getSpreadsheetId(),
-      spreadsheetUrl: getSpreadsheetUrl()
+      spreadsheetUrl: getSpreadsheetUrl(),
+      coinglassOverviewUrl: "https://www.coinglass.com/currencies/DOGE",
+      coinglassOiUrl: "https://www.coinglass.com/open-interest/DOGE"
     },
-    status: readPayload(STATE_KEYS.status, {
-      timestamp: new Date().toISOString(),
-      symbol: CONFIG.symbol,
-      timeframe: CONFIG.interval,
-      marketRegime: "CHAOS",
-      preferredStrategy: "none",
-      trendBias: "FLAT",
-      price: 0,
-      summary: {
-        initialCapital: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
-        currentEquity: CONFIG.initialCapitalPerBot * CONFIG.botKeys.length,
-        pnl: 0,
-        pnlPercent: 0,
-        totalTrades: 0,
-        avgWinRate: 0
-      },
-      bots: []
-    }),
-    equity: readPayload(STATE_KEYS.equity, {
-      symbol: CONFIG.symbol,
-      timeframe: CONFIG.interval,
-      series: []
-    })
+    status: readPayload(STATE_KEYS.status, defaultStatusPayload_()),
+    equity: readPayload(STATE_KEYS.equity, defaultEquityPayload_()),
+    runtime: readPayload(STATE_KEYS.bridgeRuntime, defaultBridgeRuntimePayload_()),
+    macro: readPayload(STATE_KEYS.bridgeMacro, defaultMacroPayload_()),
+    policy: readPayload(STATE_KEYS.bridgePolicy, defaultPolicyPayload_())
   };
 }
 
 function refreshDashboardCycle() {
-  return runSimulationCycle();
+  return {
+    ok: true,
+    mode: "bridge_only",
+    message: "O painel esta em modo bridge. Use a bridge Node.js para processar sinais e sincronizar os dados."
+  };
 }
 
 function doPost(e) {
@@ -933,6 +1007,18 @@ function ensureBridgeSpreadsheetStructure_(ss) {
     "timestamp", "mode", "symbol", "kind", "side", "signal_nonce", "order_id", "client_order_id",
     "price", "qty", "fee", "fee_asset", "notional", "reason"
   ]);
+
+  ensureSheetHeaders_(ss, "bridge_macro", [
+    "timestamp", "enabled", "event_slug", "event_title", "macro_regime", "stress_score", "stale",
+    "updated_at", "volume_24hr", "high_120", "high_130", "high_140",
+    "avg_change_15m", "avg_change_1h", "avg_change_1d", "fetch_error"
+  ]);
+
+  ensureSheetHeaders_(ss, "bridge_policy", [
+    "timestamp", "enabled", "source", "required", "risk_mode", "allowed_side", "leverage_cap",
+    "stop_profile", "hold_policy", "session_filter", "session_start_hour", "session_end_hour",
+    "confidence", "no_trade", "stale", "notes"
+  ]);
 }
 
 function ensureSheetHeaders_(ss, sheetName, headers) {
@@ -1042,6 +1128,14 @@ function ingestBridgeSync_(payload) {
     savePayload(STATE_KEYS.bridgeRuntime, payload.runtime);
   }
 
+  if (payload.macro || payload.status && payload.status.macro) {
+    savePayload(STATE_KEYS.bridgeMacro, payload.macro || payload.status.macro);
+  }
+
+  if (payload.policy || payload.status && payload.status.policy) {
+    savePayload(STATE_KEYS.bridgePolicy, payload.policy || payload.status.policy);
+  }
+
   appendBridgeSyncToSpreadsheet_(payload);
 
   return jsonResponse({
@@ -1065,6 +1159,9 @@ function appendBridgeSyncToSpreadsheet_(payload) {
   var daily = runtime.daily || {};
   var totals = runtime.totals || {};
   var lastSignal = runtime.lastSignal || {};
+  var macro = payload.macro || payload.status && payload.status.macro || runtime.macro && runtime.macro.oil || defaultMacroPayload_();
+  var policy = payload.policy || payload.status && payload.status.policy || runtime.policy || defaultPolicyPayload_();
+  var riskMarkers = macro.riskMarkers || {};
 
   ss.getSheetByName("bridge_runtime").appendRow([
     new Date().toISOString(),
@@ -1087,6 +1184,44 @@ function appendBridgeSyncToSpreadsheet_(payload) {
     lastSignal.action || "",
     lastSignal.nonce || "",
     runtime.lastError || ""
+  ]);
+
+  ss.getSheetByName("bridge_macro").appendRow([
+    new Date().toISOString(),
+    macro.enabled || false,
+    macro.eventSlug || "",
+    macro.eventTitle || "",
+    macro.macroRegime || macro.regime || "",
+    macro.macroStressScore || macro.stressScore || 0,
+    macro.stale || false,
+    macro.updatedAt || macro.fetchedAt || "",
+    macro.volume24hr || 0,
+    riskMarkers.high120 || 0,
+    riskMarkers.high130 || 0,
+    riskMarkers.high140 || 0,
+    riskMarkers.avgChange15m || 0,
+    riskMarkers.avgChange1h || 0,
+    riskMarkers.avgChange1d || 0,
+    macro.fetchError || ""
+  ]);
+
+  ss.getSheetByName("bridge_policy").appendRow([
+    new Date().toISOString(),
+    policy.enabled || false,
+    policy.source || "",
+    policy.required || false,
+    policy.riskMode || "",
+    policy.allowedSide || "",
+    policy.leverageCap || 0,
+    policy.stopProfile || "",
+    policy.holdPolicy || "",
+    policy.sessionFilter || "",
+    policy.sessionStartHour || 0,
+    policy.sessionEndHour || 0,
+    policy.confidence || 0,
+    policy.noTrade || false,
+    policy.stale || false,
+    policy.notes || ""
   ]);
 
   if (payload.equityPoint) {

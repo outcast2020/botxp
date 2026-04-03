@@ -4,7 +4,7 @@
     <base target="_top">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paper Trading Lab</title>
+    <title>BOTXP Bridge Dashboard</title>
     <style>
       :root {
         --ink: #201c16;
@@ -15,6 +15,7 @@
         --accent2: #205a56;
         --ok: #167052;
         --bad: #a62c2c;
+        --warn: #9e6a0f;
         --radius: 22px;
         --shadow: 0 18px 48px rgba(45, 30, 15, 0.10);
       }
@@ -31,7 +32,7 @@
       }
 
       .shell {
-        max-width: 1180px;
+        max-width: 1240px;
         margin: 0 auto;
         padding: 24px 16px 44px;
       }
@@ -59,12 +60,12 @@
         font-weight: 700;
       }
 
-      h1, h2 { margin: 0; }
+      h1, h2, h3 { margin: 0; }
 
       h1 {
         font-size: clamp(2rem, 4vw, 3.5rem);
         line-height: 0.95;
-        max-width: 12ch;
+        max-width: 13ch;
       }
 
       .lede {
@@ -148,6 +149,13 @@
         border: 1px solid var(--line);
       }
 
+      .hint {
+        margin-top: 18px;
+        padding: 16px 18px;
+        line-height: 1.55;
+        color: var(--warn);
+      }
+
       .metrics {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -162,7 +170,7 @@
       .metric strong {
         display: block;
         margin-top: 8px;
-        font-size: clamp(1.3rem, 2vw, 1.8rem);
+        font-size: clamp(1.2rem, 2vw, 1.7rem);
       }
 
       .metric small {
@@ -192,6 +200,26 @@
         padding: 16px 18px 18px;
       }
 
+      .market-wrap {
+        display: grid;
+        gap: 14px;
+        padding: 16px 18px 18px;
+      }
+
+      .market-frame {
+        width: 100%;
+        min-height: 420px;
+        border: 1px solid rgba(50, 42, 30, 0.08);
+        border-radius: 18px;
+        background: #fff;
+      }
+
+      .market-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
       canvas {
         width: 100%;
         height: 100%;
@@ -219,9 +247,17 @@
         font-weight: 600;
       }
 
-      .state-long { color: var(--ok); font-weight: 700; }
-      .state-short { color: var(--accent); font-weight: 700; }
-      .state-flat { color: var(--muted); font-weight: 700; }
+      .pill {
+        display: inline-block;
+        padding: 0.28rem 0.64rem;
+        border-radius: 999px;
+        background: rgba(32, 90, 86, 0.10);
+        color: var(--accent2);
+        font-weight: 700;
+      }
+
+      .ok { color: var(--ok); font-weight: 700; }
+      .bad { color: var(--bad); font-weight: 700; }
 
       a {
         color: var(--accent2);
@@ -229,7 +265,9 @@
       }
 
       @media (max-width: 980px) {
-        .hero, .metrics, .layout {
+        .hero,
+        .metrics,
+        .layout {
           grid-template-columns: 1fr;
         }
 
@@ -244,10 +282,10 @@
     <main class="shell">
       <section class="hero panel">
         <div>
-          <p class="eyebrow">Apps Script only</p>
-          <h1>Paper trading rodando 100% no Google Apps Script</h1>
+          <p class="eyebrow">Apps Script + Bridge</p>
+          <h1>DOGE futures com risco macro e painel no Google</h1>
           <p class="lede">
-            O Web App serve o painel HTML, os snapshots JSON e o motor de simulacao. Sem GitHub Pages, sem servidor extra e sem ordens reais.
+            Este Web App funciona como camada de observabilidade da bridge Node.js. Aqui a gente acompanha equity, posicao, risco geopolitico via Polymarket, politica atual via DeepSeek e o painel externo do CoinGlass.
           </p>
         </div>
         <div class="meta-card">
@@ -257,34 +295,60 @@
           </div>
           <div><span class="meta-label">Ultima atualizacao</span><br><strong id="updatedAt">-</strong></div>
           <div><span class="meta-label">Planilha</span><br><strong id="sheetLink">Nao configurada</strong></div>
+          <div><span class="meta-label">Bot</span><br><strong id="symbolMeta">DOGEUSDT / 5m + 4h</strong></div>
         </div>
       </section>
 
       <section class="toolbar panel">
         <div class="toolbar-left">
-          <button id="refreshBtn" class="button primary">Atualizar</button>
-          <button id="runCycleBtn" class="button secondary">Rodar ciclo agora</button>
+          <button id="refreshBtn" class="button primary">Atualizar painel</button>
+          <a id="sheetButton" class="button secondary" href="#" target="_blank" rel="noopener noreferrer">Abrir planilha</a>
         </div>
         <div class="toolbar-right">
-          <span class="meta-label" id="symbolMeta">BTCUSDT / 5m</span>
+          <span class="meta-label">Bridge em modo observabilidade. A execucao real roda fora do Apps Script.</span>
         </div>
+      </section>
+
+      <section class="panel hint">
+        <strong>Leitura do modo atual:</strong>
+        a entrada e saida continuam decididas pela bridge. O Apps Script so exibe o estado, guarda o historico na planilha e ajuda a acompanhar quando o risco macro manda apertar a mao.
       </section>
 
       <section class="metrics">
         <article class="panel metric">
           <span class="meta-label">Equity total</span>
-          <strong id="equityTotal">R$ 0,00</strong>
+          <strong id="equityTotal">0.00 USDT</strong>
           <small id="equityPnl">PnL 0%</small>
         </article>
         <article class="panel metric">
           <span class="meta-label">Regime</span>
           <strong id="marketRegime">-</strong>
-          <small id="preferredStrategy">Estrategia preferida: -</small>
+          <small id="preferredStrategy">Estrategia: -</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Macro</span>
+          <strong id="macroRegime">UNKNOWN</strong>
+          <small id="macroStress">Stress 0.0000</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Policy</span>
+          <strong id="policyMode">NEUTRAL</strong>
+          <small id="policyAllowed">BOTH</small>
         </article>
         <article class="panel metric">
           <span class="meta-label">Trades</span>
           <strong id="totalTrades">0</strong>
-          <small id="avgWinRate">Win rate medio 0%</small>
+          <small id="avgWinRate">Win rate 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Posicao</span>
+          <strong id="positionState">FLAT</strong>
+          <small id="runtimeMeta">Leverage 0x</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">No trade</span>
+          <strong id="policyNoTrade">NAO</strong>
+          <small id="policyConfidence">Confianca 0%</small>
         </article>
         <article class="panel metric">
           <span class="meta-label">Preco</span>
@@ -306,22 +370,62 @@
 
         <article class="panel">
           <div class="panel-head">
-            <h2>Bots</h2>
+            <h2>Bridge</h2>
             <span class="meta-label">Estado atual</span>
           </div>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Bot</th>
-                  <th>Estado</th>
-                  <th>Equity</th>
-                  <th>Trades</th>
-                  <th>Win rate</th>
-                </tr>
-              </thead>
-              <tbody id="botsTable"></tbody>
+              <tbody>
+                <tr><th>Bot</th><td>doge_futures_bridge</td></tr>
+                <tr><th>Qty</th><td id="positionQty">0</td></tr>
+                <tr><th>Margem usada</th><td id="marginUsed">0.00 USDT</td></tr>
+                <tr><th>PnL nao realizado</th><td id="unrealizedPnl">0.00 USDT</td></tr>
+                <tr><th>Ultimo sinal</th><td id="lastSignal">-</td></tr>
+                <tr><th>Ultimo erro</th><td id="lastError">-</td></tr>
+                <tr><th>Leverage cap</th><td id="policyLeverage">0x</td></tr>
+                <tr><th>Hold policy</th><td id="policyHold">NORMAL</td></tr>
+              </tbody>
             </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Macro e Policy</h2>
+            <span class="meta-label">Camada de risco em tempo real</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><th>Evento oil</th><td id="macroEvent">-</td></tr>
+                <tr><th>Atualizado em</th><td id="macroUpdatedAt">-</td></tr>
+                <tr><th>Volume 24h</th><td id="macroVolume24h">0</td></tr>
+                <tr><th>High 120</th><td id="macroHigh120">0%</td></tr>
+                <tr><th>High 130</th><td id="macroHigh130">0%</td></tr>
+                <tr><th>High 140</th><td id="macroHigh140">0%</td></tr>
+                <tr><th>Delta 15m</th><td id="macroChange15m">0%</td></tr>
+                <tr><th>Allowed side</th><td id="policyAllowedSide">BOTH</td></tr>
+                <tr><th>Stop profile</th><td id="policyStop">NORMAL</td></tr>
+                <tr><th>Session</th><td id="policySession">OFF</td></tr>
+                <tr><th>Notas</th><td id="policyNotes">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>CoinGlass DOGE</h2>
+            <span class="meta-label">Painel externo de mercado</span>
+          </div>
+          <div class="market-wrap">
+            <iframe id="coinglassFrame" class="market-frame" title="CoinGlass DOGE" loading="lazy"></iframe>
+            <div class="market-links">
+              <a id="coinglassOverviewLink" class="button secondary" href="https://www.coinglass.com/currencies/DOGE" target="_blank" rel="noopener noreferrer">Abrir CoinGlass DOGE</a>
+              <a id="coinglassOiLink" class="button secondary" href="https://www.coinglass.com/open-interest/DOGE" target="_blank" rel="noopener noreferrer">Abrir Open Interest</a>
+            </div>
           </div>
         </article>
       </section>
@@ -330,37 +434,34 @@
     <script>
       const el = (id) => document.getElementById(id);
 
-      function money(value) {
-        return new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL"
-        }).format(Number(value || 0));
+      function usdt(value) {
+        return `${Number(value || 0).toFixed(2)} USDT`;
+      }
+
+      function pct(value) {
+        return `${Number(value || 0).toFixed(2)}%`;
       }
 
       function pctFromDecimal(value) {
         return `${(Number(value || 0) * 100).toFixed(1)}%`;
       }
 
-      function pctPlain(value) {
-        return `${Number(value || 0).toFixed(2)}%`;
-      }
-
-      function stateClass(state) {
-        if (state === "LONG") return "state-long";
-        if (state === "SHORT") return "state-short";
-        return "state-flat";
+      function statusClassFromAge(timestamp) {
+        if (!timestamp) return "offline";
+        var ageMs = Date.now() - new Date(timestamp).getTime();
+        return ageMs < 10 * 60 * 1000 ? "online" : "offline";
       }
 
       function drawChart(points) {
-        const canvas = el("equityChart");
-        const ctx = canvas.getContext("2d");
-        const bounds = canvas.parentElement.getBoundingClientRect();
+        var canvas = el("equityChart");
+        var ctx = canvas.getContext("2d");
+        var bounds = canvas.parentElement.getBoundingClientRect();
         canvas.width = bounds.width * window.devicePixelRatio;
         canvas.height = bounds.height * window.devicePixelRatio;
         ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
 
-        const width = bounds.width;
-        const height = bounds.height;
+        var width = bounds.width;
+        var height = bounds.height;
         ctx.clearRect(0, 0, width, height);
 
         if (!points || points.length < 2) {
@@ -370,16 +471,16 @@
           return;
         }
 
-        const pad = { top: 16, right: 12, bottom: 24, left: 44 };
-        const values = points.map((point) => Number(point.totalEquity || 0));
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const span = Math.max(max - min, 0.001);
+        var pad = { top: 16, right: 12, bottom: 24, left: 44 };
+        var values = points.map(function(point) { return Number(point.totalEquity || 0); });
+        var min = Math.min.apply(null, values);
+        var max = Math.max.apply(null, values);
+        var span = Math.max(max - min, 0.001);
 
         ctx.strokeStyle = "rgba(50, 42, 30, 0.12)";
         ctx.lineWidth = 1;
-        for (let i = 0; i < 4; i += 1) {
-          const y = pad.top + ((height - pad.top - pad.bottom) / 3) * i;
+        for (var i = 0; i < 4; i += 1) {
+          var y = pad.top + ((height - pad.top - pad.bottom) / 3) * i;
           ctx.beginPath();
           ctx.moveTo(pad.left, y);
           ctx.lineTo(width - pad.right, y);
@@ -387,9 +488,9 @@
         }
 
         ctx.beginPath();
-        points.forEach((point, index) => {
-          const x = pad.left + (index / (points.length - 1)) * (width - pad.left - pad.right);
-          const y = pad.top + (1 - ((Number(point.totalEquity) - min) / span)) * (height - pad.top - pad.bottom);
+        points.forEach(function(point, index) {
+          var x = pad.left + (index / (points.length - 1)) * (width - pad.left - pad.right);
+          var y = pad.top + (1 - ((Number(point.totalEquity || 0) - min) / span)) * (height - pad.top - pad.bottom);
           if (index === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
@@ -410,72 +511,94 @@
       }
 
       function render(bundle) {
-        const status = bundle.status || {};
-        const equity = bundle.equity || { series: [] };
-        const config = bundle.config || {};
+        var status = bundle.status || {};
+        var equity = bundle.equity || { series: [] };
+        var runtime = bundle.runtime || {};
+        var macro = status.macro || bundle.macro || runtime.macro && runtime.macro.oil || {};
+        var policy = status.policy || bundle.policy || runtime.policy || {};
+        var config = bundle.config || {};
+        var wallet = runtime.wallet || {};
+        var position = runtime.position || {};
+        var lastSignal = runtime.lastSignal || {};
+        var riskMarkers = macro.riskMarkers || {};
 
         el("updatedAt").textContent = status.timestamp ? new Date(status.timestamp).toLocaleString("pt-BR") : "-";
-        el("equityTotal").textContent = money(status.summary?.currentEquity);
-        el("equityPnl").textContent = `PnL ${pctPlain(status.summary?.pnlPercent || 0)}`;
-        el("marketRegime").textContent = status.marketRegime || "-";
-        el("preferredStrategy").textContent = `Estrategia preferida: ${status.preferredStrategy || "-"}`;
-        el("totalTrades").textContent = status.summary?.totalTrades ?? 0;
-        el("avgWinRate").textContent = `Win rate medio ${pctFromDecimal(status.summary?.avgWinRate || 0)}`;
-        el("lastPrice").textContent = Number(status.price || 0).toLocaleString("pt-BR");
-        el("trendBias").textContent = `Tendencia: ${status.trendBias || "-"}`;
+        el("sheetLink").innerHTML = config.spreadsheetUrl
+          ? `<a href="${config.spreadsheetUrl}" target="_blank" rel="noopener noreferrer">Abrir planilha</a>`
+          : "Nao configurada";
+        el("sheetButton").href = config.spreadsheetUrl || "#";
+        el("sheetButton").style.pointerEvents = config.spreadsheetUrl ? "auto" : "none";
+        el("sheetButton").style.opacity = config.spreadsheetUrl ? "1" : "0.55";
+
+        var statusClass = statusClassFromAge(status.timestamp);
+        el("statusDot").className = `dot ${statusClass}`;
+        el("statusText").textContent = statusClass === "online" ? "Snapshot recente" : "Snapshot antigo";
         el("symbolMeta").textContent = `${status.symbol || config.symbol || "-"} / ${status.timeframe || config.timeframe || "-"}`;
-        el("equityMeta").textContent = `${equity.series?.length || 0} pontos`;
 
-        const ageMs = status.timestamp ? Date.now() - new Date(status.timestamp).getTime() : Number.MAX_SAFE_INTEGER;
-        const online = ageMs < 10 * 60 * 1000;
-        el("statusDot").className = `dot ${online ? "online" : "offline"}`;
-        el("statusText").textContent = online ? "Snapshot recente" : "Snapshot antigo";
+        el("equityTotal").textContent = usdt(status.summary && status.summary.currentEquity || wallet.totalEquity || 0);
+        el("equityPnl").textContent = `PnL ${pct(status.summary && status.summary.pnlPercent || 0)}`;
+        el("marketRegime").textContent = status.marketRegime || "-";
+        el("preferredStrategy").textContent = `Estrategia: ${status.preferredStrategy || "-"}`;
+        el("macroRegime").textContent = macro.macroRegime || macro.regime || "UNKNOWN";
+        el("macroStress").textContent = `Stress ${Number(macro.macroStressScore || macro.stressScore || 0).toFixed(4)}`;
+        el("policyMode").textContent = policy.riskMode || "NEUTRAL";
+        el("policyAllowed").textContent = `Allowed ${policy.allowedSide || "BOTH"}`;
+        el("totalTrades").textContent = String(status.summary && status.summary.totalTrades || runtime.totals && runtime.totals.closedTrades || 0);
+        el("avgWinRate").textContent = `Win rate ${pctFromDecimal(status.summary && status.summary.avgWinRate || 0)}`;
+        el("positionState").textContent = position.side || "FLAT";
+        el("runtimeMeta").textContent = `Leverage ${Number(wallet.effectiveLeverage || position.leverage || 0).toFixed(2)}x`;
+        el("policyNoTrade").textContent = policy.noTrade ? "SIM" : "NAO";
+        el("policyConfidence").textContent = `Confianca ${pctFromDecimal(policy.confidence || 0)}`;
+        el("lastPrice").textContent = Number(status.price || wallet.markPrice || 0).toLocaleString("pt-BR");
+        el("trendBias").textContent = `Tendencia: ${status.trendBias || "-"}`;
+        el("equityMeta").textContent = `${equity.series && equity.series.length || 0} pontos`;
 
-        if (config.spreadsheetUrl) {
-          el("sheetLink").innerHTML = `<a href="${config.spreadsheetUrl}" target="_blank">Abrir planilha</a>`;
-        } else {
-          el("sheetLink").textContent = "Nao configurada";
-        }
+        el("positionQty").textContent = Number(position.qty || 0).toFixed(4);
+        el("marginUsed").textContent = usdt(wallet.marginUsed || 0);
+        el("unrealizedPnl").textContent = usdt(wallet.unrealizedPnl || 0);
+        el("lastSignal").textContent = lastSignal.action ? `${lastSignal.action} (${lastSignal.nonce || "-"})` : "-";
+        el("lastError").textContent = runtime.lastError || "-";
+        el("policyLeverage").textContent = `${Number(policy.leverageCap || 0).toFixed(2)}x`;
+        el("policyHold").textContent = policy.holdPolicy || "NORMAL";
 
-        const rows = (status.bots || []).map((bot) => `
-          <tr>
-            <td>${bot.name}</td>
-            <td class="${stateClass(bot.state)}">${bot.state}</td>
-            <td>${money(bot.equity)}</td>
-            <td>${bot.tradeCount}</td>
-            <td>${pctFromDecimal(bot.winRate)}</td>
-          </tr>
-        `).join("");
+        el("macroEvent").textContent = macro.eventSlug || "-";
+        el("macroUpdatedAt").textContent = macro.updatedAt ? new Date(macro.updatedAt).toLocaleString("pt-BR") : "-";
+        el("macroVolume24h").textContent = Number(macro.volume24hr || 0).toLocaleString("pt-BR");
+        el("macroHigh120").textContent = pctFromDecimal(riskMarkers.high120 || 0);
+        el("macroHigh130").textContent = pctFromDecimal(riskMarkers.high130 || 0);
+        el("macroHigh140").textContent = pctFromDecimal(riskMarkers.high140 || 0);
+        el("macroChange15m").textContent = pctFromDecimal(riskMarkers.avgChange15m || 0);
+        el("policyAllowedSide").textContent = policy.allowedSide || "BOTH";
+        el("policyStop").textContent = policy.stopProfile || "NORMAL";
+        el("policySession").textContent = policy.sessionFilter === "CUSTOM"
+          ? `${policy.sessionStartHour}:${String(0).padStart(2, "0")} - ${policy.sessionEndHour}:${String(0).padStart(2, "0")}`
+          : (policy.sessionFilter || "OFF");
+        el("policyNotes").textContent = policy.notes || "-";
 
-        el("botsTable").innerHTML = rows || '<tr><td colspan="5">Nenhum bot carregado.</td></tr>';
+        var overviewUrl = config.coinglassOverviewUrl || "https://www.coinglass.com/currencies/DOGE";
+        var oiUrl = config.coinglassOiUrl || "https://www.coinglass.com/open-interest/DOGE";
+        el("coinglassFrame").src = overviewUrl;
+        el("coinglassOverviewLink").href = overviewUrl;
+        el("coinglassOiLink").href = oiUrl;
+
         drawChart(equity.series || []);
+      }
+
+      function showError(error) {
+        el("statusDot").className = "dot offline";
+        el("statusText").textContent = "Erro ao carregar";
+        el("lastError").textContent = error && error.message ? error.message : String(error);
+        console.error(error);
       }
 
       function loadBundle() {
         google.script.run
           .withSuccessHandler(render)
-          .withFailureHandler((error) => {
-            el("statusDot").className = "dot offline";
-            el("statusText").textContent = "Erro ao carregar";
-            console.error(error);
-          })
+          .withFailureHandler(showError)
           .getDashboardBundle();
       }
 
-      function runCycleNow() {
-        el("statusText").textContent = "Rodando ciclo";
-        google.script.run
-          .withSuccessHandler(() => loadBundle())
-          .withFailureHandler((error) => {
-            el("statusDot").className = "dot offline";
-            el("statusText").textContent = "Erro no ciclo";
-            console.error(error);
-          })
-          .refreshDashboardCycle();
-      }
-
       el("refreshBtn").addEventListener("click", loadBundle);
-      el("runCycleBtn").addEventListener("click", runCycleNow);
       window.addEventListener("resize", loadBundle);
 
       loadBundle();

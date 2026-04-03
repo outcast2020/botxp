@@ -10,10 +10,10 @@
     <main class="shell">
       <section class="hero panel">
         <div>
-          <p class="eyebrow">GitHub Pages + Apps Script</p>
-          <h1>DOGE Futures bridge com painel publico no GitHub</h1>
+          <p class="eyebrow">GitHub Pages + Apps Script + Bridge</p>
+          <h1>DOGE futures com macro risco e monitor publico</h1>
           <p class="lede">
-            Este painel le o status do bridge Node.js a partir do Web App do Apps Script e mostra equity, regime, runtime e historico recente sem depender do editor do Google para consulta.
+            Este painel le o Web App do Apps Script para mostrar equity, posicao, politica de risco, macro via Polymarket e um painel externo do CoinGlass sem depender do editor do Google.
           </p>
         </div>
         <div class="meta-card">
@@ -34,25 +34,35 @@
           <button id="refreshBtn" class="button primary">Atualizar</button>
         </div>
         <div class="toolbar-right">
-          <span class="meta-label" id="symbolMeta">DOGEUSDT / 1m + 4h</span>
+          <span class="meta-label" id="symbolMeta">DOGEUSDT / 5m + 4h</span>
         </div>
       </section>
 
       <section id="hintPanel" class="panel hint">
         <strong>Requisito para GitHub Pages:</strong>
-        o Web App do Apps Script precisa estar publicado com acesso publico de leitura. Se o painel mostrar erro de login ou CORS, publique o deploy como <code>Anyone</code>.
+        o Web App do Apps Script precisa estar publicado com acesso publico de leitura. Se o painel mostrar erro de login, republice o deploy como <code>Anyone</code>.
       </section>
 
       <section class="metrics">
         <article class="panel metric">
           <span class="meta-label">Equity total</span>
-          <strong id="equityTotal">USDT 0.00</strong>
+          <strong id="equityTotal">0.00 USDT</strong>
           <small id="equityPnl">PnL 0%</small>
         </article>
         <article class="panel metric">
           <span class="meta-label">Regime</span>
           <strong id="marketRegime">-</strong>
           <small id="preferredStrategy">Estrategia: -</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Macro</span>
+          <strong id="macroRegime">UNKNOWN</strong>
+          <small id="macroStress">Stress 0.0000</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Policy</span>
+          <strong id="policyMode">NEUTRAL</strong>
+          <small id="policyAllowed">BOTH</small>
         </article>
         <article class="panel metric">
           <span class="meta-label">Trades</span>
@@ -63,6 +73,16 @@
           <span class="meta-label">Posicao</span>
           <strong id="positionState">FLAT</strong>
           <small id="runtimeMeta">Leverage 0x</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">No trade</span>
+          <strong id="policyNoTrade">NAO</strong>
+          <small id="policyConfidence">Confianca 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Preco</span>
+          <strong id="lastPrice">0</strong>
+          <small id="trendBias">Tendencia: -</small>
         </article>
       </section>
 
@@ -86,15 +106,55 @@
             <table>
               <tbody>
                 <tr><th>Bot</th><td id="botName">doge_futures_bridge</td></tr>
-                <tr><th>Preco</th><td id="lastPrice">0</td></tr>
-                <tr><th>Tendencia</th><td id="trendBias">-</td></tr>
                 <tr><th>Qty</th><td id="positionQty">0</td></tr>
                 <tr><th>Margem usada</th><td id="marginUsed">0</td></tr>
                 <tr><th>PnL nao realizado</th><td id="unrealizedPnl">0</td></tr>
                 <tr><th>Ultimo sinal</th><td id="lastSignal">-</td></tr>
                 <tr><th>Ultimo erro</th><td id="lastError">-</td></tr>
+                <tr><th>Leverage cap</th><td id="policyLeverage">0x</td></tr>
+                <tr><th>Hold policy</th><td id="policyHold">NORMAL</td></tr>
               </tbody>
             </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Macro e Policy</h2>
+            <span class="meta-label">Camada de risco em tempo real</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><th>Evento oil</th><td id="macroEvent">-</td></tr>
+                <tr><th>Atualizado em</th><td id="macroUpdatedAt">-</td></tr>
+                <tr><th>Volume 24h</th><td id="macroVolume24h">0</td></tr>
+                <tr><th>High 120</th><td id="macroHigh120">0%</td></tr>
+                <tr><th>High 130</th><td id="macroHigh130">0%</td></tr>
+                <tr><th>High 140</th><td id="macroHigh140">0%</td></tr>
+                <tr><th>Delta 15m</th><td id="macroChange15m">0%</td></tr>
+                <tr><th>Allowed side</th><td id="policyAllowedSide">BOTH</td></tr>
+                <tr><th>Stop profile</th><td id="policyStop">NORMAL</td></tr>
+                <tr><th>Session</th><td id="policySession">OFF</td></tr>
+                <tr><th>Notas</th><td id="policyNotes">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>CoinGlass DOGE</h2>
+            <span class="meta-label">Painel externo de mercado</span>
+          </div>
+          <div class="market-wrap">
+            <iframe id="coinglassFrame" class="market-frame" title="CoinGlass DOGE" loading="lazy"></iframe>
+            <div class="market-links">
+              <a id="coinglassOverviewLink" class="button secondary" href="https://www.coinglass.com/currencies/DOGE" target="_blank" rel="noopener noreferrer">Abrir CoinGlass DOGE</a>
+              <a id="coinglassOiLink" class="button secondary" href="https://www.coinglass.com/open-interest/DOGE" target="_blank" rel="noopener noreferrer">Abrir Open Interest</a>
+            </div>
           </div>
         </article>
       </section>
