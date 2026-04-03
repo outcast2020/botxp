@@ -11,10 +11,10 @@
     <main class="shell">
       <section class="hero panel">
         <div>
-          <p class="eyebrow">Terminal Próprio</p>
-          <h1>Chart, editor e runner local para sinais em JS</h1>
+          <p class="eyebrow">Terminal Proprio</p>
+          <h1>Chart, editor, replay e sinais em JS</h1>
           <p class="lede">
-            Este terminal lê mercado direto da Binance, executa sua estratégia em JavaScript com API estilo Pine e envia sinais para a bridge local só quando você quiser.
+            Este terminal le mercado direto da Binance, roda a estrategia em JavaScript com API estilo Pine, reproduz o historico em replay e envia sinais para a bridge local quando fizer sentido.
           </p>
         </div>
         <div class="meta-card">
@@ -23,8 +23,8 @@
             <span id="bridgeStatus">Checando bridge</span>
           </div>
           <div><span class="meta-label">Mercado</span><br><strong id="marketMeta">DOGEUSDT / 5m + 4h</strong></div>
-          <div><span class="meta-label">Último candle</span><br><strong id="lastBarTime">-</strong></div>
-          <div><span class="meta-label">Último sinal</span><br><strong id="lastSignalMeta">-</strong></div>
+          <div><span class="meta-label">Ultimo candle</span><br><strong id="lastBarTime">-</strong></div>
+          <div><span class="meta-label">Ultimo sinal</span><br><strong id="lastSignalMeta">-</strong></div>
         </div>
       </section>
 
@@ -66,8 +66,8 @@
         <div class="toolbar-actions">
           <button id="saveSettingsBtn" class="button secondary">Salvar</button>
           <button id="reloadDataBtn" class="button secondary">Recarregar dados</button>
-          <button id="runStrategyBtn" class="button primary">Rodar estratégia</button>
-          <button id="sendSignalBtn" class="button primary">Enviar último sinal</button>
+          <button id="runStrategyBtn" class="button primary">Rodar estrategia</button>
+          <button id="sendSignalBtn" class="button primary">Enviar sinal do frame atual</button>
         </div>
       </section>
 
@@ -83,7 +83,17 @@
           <small id="macroStress">Stress 0.0000</small>
         </article>
         <article class="panel metric">
-          <span class="meta-label">Último preço</span>
+          <span class="meta-label">Backtest equity</span>
+          <strong id="equityValue">0.00 USDT</strong>
+          <small id="backtestPnl">PnL 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Fechamentos</span>
+          <strong id="closedTradesCount">0</strong>
+          <small id="winRateMeta">Win rate 0%</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Ultimo preco</span>
           <strong id="lastPrice">0</strong>
           <small id="atrMeta">ATR 0%</small>
         </article>
@@ -92,36 +102,111 @@
           <strong id="signalCount">0</strong>
           <small id="markerCount">0 marcadores</small>
         </article>
+        <article class="panel metric">
+          <span class="meta-label">Replay</span>
+          <strong id="replayLabel">0 / 0</strong>
+          <small id="chartMeta">aguardando dados</small>
+        </article>
+        <article class="panel metric">
+          <span class="meta-label">Ultimo envio</span>
+          <strong id="lastSendStatus">-</strong>
+          <small id="strategyId">-</small>
+        </article>
       </section>
 
       <section class="layout">
         <article class="panel">
           <div class="panel-head">
-            <h2>Chart</h2>
-            <span id="chartMeta" class="meta-label">aguardando dados</span>
+            <h2>Chart e Replay</h2>
+            <span class="meta-label">candles, plots e marcadores</span>
           </div>
           <div id="chart" class="chart"></div>
+          <div class="replay-panel">
+            <div class="replay-main">
+              <input id="replaySlider" class="replay-slider" type="range" min="0" max="0" step="1" value="0">
+              <div class="replay-row">
+                <button id="replayStartBtn" class="button secondary">Inicio</button>
+                <button id="replayPrevBtn" class="button secondary">Anterior</button>
+                <button id="replayPlayBtn" class="button primary">Play</button>
+                <button id="replayNextBtn" class="button secondary">Proximo</button>
+                <button id="replayEndBtn" class="button secondary">Fim</button>
+              </div>
+            </div>
+            <div class="replay-side">
+              <label>
+                Velocidade
+                <select id="replaySpeedSelect">
+                  <option value="1200">Lenta</option>
+                  <option value="700" selected>Media</option>
+                  <option value="300">Rapida</option>
+                </select>
+              </label>
+              <div class="replay-meta">
+                <div><span class="meta-label">Barra atual</span><br><strong id="currentReplayBar">-</strong></div>
+                <div><span class="meta-label">Ultimo frame</span><br><strong id="currentFrameSignal">-</strong></div>
+              </div>
+            </div>
+          </div>
         </article>
 
         <article class="panel side-panel">
           <div class="panel-head">
-            <h2>Runner</h2>
-            <span class="meta-label">estado local</span>
+            <h2>Posicao</h2>
+            <span class="meta-label">estado do frame atual</span>
           </div>
           <div class="table-wrap">
             <table>
               <tbody>
-                <tr><th>Strategy ID</th><td id="strategyId">-</td></tr>
-                <tr><th>Última ação</th><td id="latestAction">-</td></tr>
+                <tr><th>Lado</th><td id="positionSide">FLAT</td></tr>
+                <tr><th>Qty</th><td id="positionQty">0</td></tr>
+                <tr><th>Entry</th><td id="positionEntry">0</td></tr>
+                <tr><th>Leverage</th><td id="positionLeverage">0x</td></tr>
+                <tr><th>Margem</th><td id="positionMargin">0.00 USDT</td></tr>
+                <tr><th>Unrealized</th><td id="positionUnrealized">0.00 USDT</td></tr>
+                <tr><th>Balance</th><td id="balanceValue">0.00 USDT</td></tr>
+                <tr><th>Drawdown</th><td id="drawdownValue">0%</td></tr>
+                <tr><th>Acao atual</th><td id="latestAction">-</td></tr>
                 <tr><th>Nonce</th><td id="latestNonce">-</td></tr>
                 <tr><th>Reason</th><td id="latestReason">-</td></tr>
                 <tr><th>HTF trend</th><td id="latestHtfTrend">-</td></tr>
                 <tr><th>RSI</th><td id="latestRsi">0</td></tr>
                 <tr><th>ATR %</th><td id="latestAtrPct">0%</td></tr>
-                <tr><th>Último envio</th><td id="lastSendStatus">-</td></tr>
               </tbody>
             </table>
           </div>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Trades</h2>
+            <span class="meta-label">fechamentos ate o frame atual</span>
+          </div>
+          <div class="table-wrap trades-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Trade</th>
+                  <th>Lado</th>
+                  <th>Entrada</th>
+                  <th>Saida</th>
+                  <th>Qty</th>
+                  <th>Net PnL</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody id="tradesTable"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Sinais do frame</h2>
+            <span class="meta-label">payload pronto para a bridge</span>
+          </div>
+          <pre id="signalPayloadView" class="log-output compact"></pre>
         </article>
       </section>
 
@@ -137,7 +222,7 @@
         <article class="panel">
           <div class="panel-head">
             <h2>Log</h2>
-            <span class="meta-label">compilação, mercado e webhook</span>
+            <span class="meta-label">compilacao, replay, mercado e webhook</span>
           </div>
           <pre id="logOutput" class="log-output"></pre>
         </article>

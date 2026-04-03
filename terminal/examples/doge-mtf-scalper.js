@@ -26,6 +26,7 @@ defineStrategy({
     const htfClose = ctx.htf.close();
     const htfFast = ta.ema(htfClose, ctx.input.htfFastLen);
     const htfSlow = ta.ema(htfClose, ctx.input.htfSlowLen);
+    const htfRsi = ta.rsi(htfClose, 14);
 
     const macroRisk = Number(ctx.macro?.stressScore || 0);
     const allowLong = (ctx.policy?.allowedSide || "BOTH") !== "SHORT_ONLY";
@@ -52,6 +53,16 @@ defineStrategy({
       close.last() < emaTrend.last() &&
       rsi.last() < 48;
 
+    const flattenLong =
+      shortBias &&
+      close.last() < emaFast.last() &&
+      rsi.last() < 45;
+
+    const flattenShort =
+      longBias &&
+      close.last() > emaFast.last() &&
+      rsi.last() > 55;
+
     if (longSignal) {
       strategy.entry("L", "LONG", {
         leverage: Math.min(ctx.input.leverage, ctx.policy?.leverageCap || ctx.input.leverage),
@@ -59,7 +70,7 @@ defineStrategy({
         rsi: rsi.last(),
         atrPct: (atr.last() / close.last()) * 100,
         htfTrend: longBias ? "BULL" : "NEUTRAL",
-        htfRsi: ta.rsi(htfClose, 14).last(),
+        htfRsi: htfRsi.last(),
         reason: "mtf_long_pullback"
       });
     }
@@ -71,16 +82,22 @@ defineStrategy({
         rsi: rsi.last(),
         atrPct: (atr.last() / close.last()) * 100,
         htfTrend: shortBias ? "BEAR" : "NEUTRAL",
-        htfRsi: ta.rsi(htfClose, 14).last(),
+        htfRsi: htfRsi.last(),
         reason: "mtf_short_pullback"
       });
     }
 
-    plot.line("emaFast", emaFast.last());
-    plot.line("emaSlow", emaSlow.last());
-    plot.line("emaTrend", emaTrend.last());
-    plot.line("atr", atr.last());
-    plot.marker(longSignal, "BUY");
-    plot.marker(shortSignal, "SELL");
+    if (flattenLong || flattenShort) {
+      strategy.closeAll(flattenLong ? "long_momentum_loss" : "short_momentum_loss");
+    }
+
+    plot.line("emaFast", emaFast.last(), { pane: "price", color: "#ab4b2a" });
+    plot.line("emaSlow", emaSlow.last(), { pane: "price", color: "#1a5953" });
+    plot.line("emaTrend", emaTrend.last(), { pane: "price", color: "#7d5a2b" });
+    plot.histogram("rsi", rsi.last(), { pane: "indicator", color: "#6d4bb4" });
+    plot.line("htfRsi", htfRsi.last(), { pane: "indicator", color: "#205a56" });
+    plot.band("rsiBand", 70, 30, { pane: "indicator", color: "rgba(171, 75, 42, 0.14)" });
+    plot.marker(longSignal, "BUY", { direction: "up", color: "#14684c", price: low.last() * 0.998 });
+    plot.marker(shortSignal, "SELL", { direction: "down", color: "#a12f2f", price: high.last() * 1.002 });
   }
 });

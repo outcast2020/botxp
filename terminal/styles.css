@@ -25,7 +25,7 @@ body {
 }
 
 .shell {
-  max-width: 1360px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 24px 16px 44px;
 }
@@ -130,7 +130,8 @@ label {
   align-content: end;
 }
 
-input {
+input,
+select {
   min-height: 42px;
   padding: 10px 12px;
   border-radius: 14px;
@@ -214,8 +215,40 @@ input[type="checkbox"] {
 }
 
 .chart {
-  height: 520px;
+  height: 560px;
   padding: 10px;
+}
+
+.replay-panel {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 16px;
+  padding: 0 18px 18px;
+}
+
+.replay-main {
+  display: grid;
+  gap: 12px;
+}
+
+.replay-slider {
+  width: 100%;
+}
+
+.replay-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.replay-side {
+  display: grid;
+  gap: 12px;
+}
+
+.replay-meta {
+  display: grid;
+  gap: 12px;
 }
 
 .editor {
@@ -224,6 +257,11 @@ input[type="checkbox"] {
 
 .table-wrap {
   padding: 10px 18px 18px;
+}
+
+.trades-wrap {
+  max-height: 440px;
+  overflow: auto;
 }
 
 table {
@@ -243,8 +281,14 @@ th {
   font-weight: 600;
 }
 
-.side-panel .table-wrap {
-  padding-top: 4px;
+.good {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.bad {
+  color: var(--bad);
+  font-weight: 700;
 }
 
 .log-output {
@@ -261,11 +305,17 @@ th {
   color: #143734;
 }
 
-@media (max-width: 1080px) {
+.log-output.compact {
+  min-height: 440px;
+  max-height: 440px;
+}
+
+@media (max-width: 1180px) {
   .hero,
   .metrics,
   .layout,
-  .editor-layout {
+  .editor-layout,
+  .replay-panel {
     grid-template-columns: 1fr;
   }
 
@@ -274,12 +324,13 @@ th {
   }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 720px) {
   .toolbar-grid {
     grid-template-columns: 1fr;
   }
 
-  .toolbar-actions {
+  .toolbar-actions,
+  .replay-row {
     flex-direction: column;
   }
 }

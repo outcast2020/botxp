@@ -26,8 +26,8 @@ function emaValues(values, period) {
   const multiplier = 2 / (period + 1);
   let current = values[0];
   output.push(current);
-  for (let i = 1; i < values.length; i += 1) {
-    current = (values[i] - current) * multiplier + current;
+  for (let index = 1; index < values.length; index += 1) {
+    current = (values[index] - current) * multiplier + current;
     output.push(current);
   }
   return output;
@@ -40,23 +40,23 @@ function rsiValues(values, period) {
 
   let gains = 0;
   let losses = 0;
-  for (let i = 1; i <= period; i += 1) {
-    const change = values[i] - values[i - 1];
+  for (let index = 1; index <= period; index += 1) {
+    const change = values[index] - values[index - 1];
     if (change >= 0) gains += change;
     else losses += Math.abs(change);
   }
 
   let avgGain = gains / period;
   let avgLoss = losses / period;
-  output[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+  output[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
 
-  for (let i = period + 1; i < values.length; i += 1) {
-    const change = values[i] - values[i - 1];
+  for (let index = period + 1; index < values.length; index += 1) {
+    const change = values[index] - values[index - 1];
     const gain = Math.max(change, 0);
     const loss = Math.max(-change, 0);
     avgGain = ((avgGain * (period - 1)) + gain) / period;
     avgLoss = ((avgLoss * (period - 1)) + loss) / period;
-    output[i] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+    output[index] = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
   }
 
   return output;
@@ -65,12 +65,13 @@ function rsiValues(values, period) {
 function atrValues(highValues, lowValues, closeValues, period) {
   if (!highValues.length || !lowValues.length || !closeValues.length) return [];
   const ranges = [];
-  for (let i = 0; i < highValues.length; i += 1) {
-    const prevClose = i === 0 ? closeValues[i] : closeValues[i - 1];
+
+  for (let index = 0; index < highValues.length; index += 1) {
+    const prevClose = index === 0 ? closeValues[index] : closeValues[index - 1];
     const tr = Math.max(
-      highValues[i] - lowValues[i],
-      Math.abs(highValues[i] - prevClose),
-      Math.abs(lowValues[i] - prevClose)
+      highValues[index] - lowValues[index],
+      Math.abs(highValues[index] - prevClose),
+      Math.abs(lowValues[index] - prevClose)
     );
     ranges.push(tr);
   }
@@ -78,8 +79,8 @@ function atrValues(highValues, lowValues, closeValues, period) {
   const output = [];
   let current = ranges[0] || 0;
   output.push(current);
-  for (let i = 1; i < ranges.length; i += 1) {
-    current = ((current * (period - 1)) + ranges[i]) / period;
+  for (let index = 1; index < ranges.length; index += 1) {
+    current = ((current * (period - 1)) + ranges[index]) / period;
     output.push(current);
   }
   return output;
@@ -99,10 +100,6 @@ function crossUnder(aSeries, bSeries) {
   return a[a.length - 2] >= b[b.length - 2] && a[a.length - 1] < b[b.length - 1];
 }
 
-function normalizeSource(source) {
-  return String(source || "").replace(/export\s+default\s+/g, "");
-}
-
 function inputDescriptor(type, defaultValue, options = {}) {
   return {
     __inputDescriptor: true,
@@ -110,6 +107,10 @@ function inputDescriptor(type, defaultValue, options = {}) {
     defaultValue,
     options
   };
+}
+
+function normalizeSource(source) {
+  return String(source || "").replace(/export\s+default\s+/g, "");
 }
 
 function compileStrategy(source) {
@@ -129,6 +130,7 @@ function compileStrategy(source) {
   const sharedStrategy = {};
   const sharedPlot = {};
   let captured = null;
+
   const defineStrategy = (definition) => {
     captured = definition;
     return definition;
@@ -138,7 +140,7 @@ function compileStrategy(source) {
   runner(defineStrategy, input, sharedTa, sharedStrategy, sharedPlot);
 
   if (!captured || typeof captured.onBarClose !== "function") {
-    throw new Error("A estratégia precisa chamar defineStrategy({ onBarClose() { ... } }).");
+    throw new Error("A estrategia precisa chamar defineStrategy({ onBarClose() { ... } }).");
   }
 
   return {
@@ -176,7 +178,9 @@ function buildTa() {
       return createSeries(rsiValues(series.values || [], Number(period || 1)));
     },
     atr(highSeries, lowSeries, closeSeries, period) {
-      return createSeries(atrValues(highSeries.values || [], lowSeries.values || [], closeSeries.values || [], Number(period || 1)));
+      return createSeries(
+        atrValues(highSeries.values || [], lowSeries.values || [], closeSeries.values || [], Number(period || 1))
+      );
     },
     crossOver,
     crossUnder
@@ -185,6 +189,43 @@ function buildTa() {
 
 function lastOrZero(series) {
   return Number(series?.last?.() || 0);
+}
+
+function ensureLineStore(store, name, pane, color) {
+  if (!store.has(name)) {
+    store.set(name, {
+      name,
+      pane,
+      color,
+      points: []
+    });
+  }
+  return store.get(name);
+}
+
+function ensureBandStore(store, name, pane, color) {
+  if (!store.has(name)) {
+    store.set(name, {
+      name,
+      pane,
+      color,
+      upper: [],
+      lower: []
+    });
+  }
+  return store.get(name);
+}
+
+function addMarker(markers, bar, text, options = {}) {
+  const direction = options.direction || (String(text || "").toUpperCase().includes("SELL") ? "down" : "up");
+  const fallbackPrice = direction === "down" ? bar.high * 1.004 : bar.low * 0.996;
+  markers.push({
+    time: bar.time,
+    text: text || "S",
+    color: options.color || (direction === "down" ? "#a12f2f" : "#14684c"),
+    direction,
+    price: Number(options.price || fallbackPrice)
+  });
 }
 
 function buildSignalPayload(action, options, ctx) {
@@ -196,11 +237,11 @@ function buildSignalPayload(action, options, ctx) {
 
   return {
     source: "botxp_terminal",
-    strategy_id: ctx.strategy.id || "custom_strategy",
+    strategy_id: ctx.strategyMeta.id || "custom_strategy",
     action,
-    symbol: ctx.strategy.symbol || ctx.symbol,
+    symbol: ctx.strategyMeta.symbol || ctx.symbol,
     market: "usds_m_futures",
-    interval: ctx.strategy.timeframe || ctx.timeframe,
+    interval: ctx.strategyMeta.timeframe || ctx.timeframe,
     bar_time: ctx.bar.openTime,
     price,
     leverage: Number(options.leverage || ctx.input.leverage || 1),
@@ -213,7 +254,174 @@ function buildSignalPayload(action, options, ctx) {
     htf_trend: String(options.htfTrend || ctx.derived.htfTrend || "NEUTRAL").toUpperCase(),
     htf_rsi: Number((options.htfRsi ?? lastOrZero(htfRsiSeries)).toFixed(4)),
     reason: options.reason || "",
-    nonce: options.nonce || `${ctx.strategy.id || "strategy"}-${ctx.bar.openTime}-${action}`
+    nonce: options.nonce || `${ctx.strategyMeta.id || "strategy"}-${ctx.bar.openTime}-${action}`
+  };
+}
+
+function clonePosition(position, currentPrice = 0) {
+  if (!position) {
+    return {
+      side: "FLAT",
+      qty: 0,
+      leverage: 0,
+      entryPrice: 0,
+      unrealizedPnl: 0,
+      notional: 0,
+      marginUsed: 0
+    };
+  }
+
+  const unrealizedPnl =
+    position.side === "LONG"
+      ? (currentPrice - position.entryPrice) * position.qty
+      : (position.entryPrice - currentPrice) * position.qty;
+
+  return {
+    side: position.side,
+    qty: Number(position.qty.toFixed(6)),
+    leverage: position.leverage,
+    entryPrice: Number(position.entryPrice.toFixed(6)),
+    openedAt: position.openedAt,
+    reason: position.reason,
+    unrealizedPnl: Number(unrealizedPnl.toFixed(4)),
+    notional: Number((position.qty * currentPrice).toFixed(4)),
+    marginUsed: Number(position.marginUsed.toFixed(4))
+  };
+}
+
+function simulateSignalsForBar({
+  signalsForBar,
+  bar,
+  simulation,
+  closedTrades,
+  autoMarkers,
+  settings
+}) {
+  const feeRate = Number(settings.feeRate || 0.0004);
+  const initialCapital = Number(settings.initialCapitalUsdt || 20);
+
+  const closePosition = (reason, signal) => {
+    if (!simulation.position) return null;
+
+    const exitPrice = Number(signal?.price || bar.close || 0);
+    const exitFee = simulation.position.qty * exitPrice * feeRate;
+    const grossPnl =
+      simulation.position.side === "LONG"
+        ? (exitPrice - simulation.position.entryPrice) * simulation.position.qty
+        : (simulation.position.entryPrice - exitPrice) * simulation.position.qty;
+
+    simulation.balance += grossPnl - exitFee;
+    simulation.fees += exitFee;
+
+    const trade = {
+      tradeId: `T-${closedTrades.length + 1}`,
+      direction: simulation.position.side,
+      entryTime: simulation.position.openedAt,
+      exitTime: bar.time,
+      symbol: settings.symbol,
+      entryPriceAvg: Number(simulation.position.entryPrice.toFixed(6)),
+      exitPriceAvg: Number(exitPrice.toFixed(6)),
+      qty: Number(simulation.position.qty.toFixed(6)),
+      leverage: simulation.position.leverage,
+      grossPnl: Number(grossPnl.toFixed(4)),
+      feesTotal: Number((simulation.position.entryFee + exitFee).toFixed(4)),
+      fundingTotal: 0,
+      netPnl: Number((grossPnl - simulation.position.entryFee - exitFee).toFixed(4)),
+      returnOnMarginPct: simulation.position.marginUsed
+        ? Number((((grossPnl - simulation.position.entryFee - exitFee) / simulation.position.marginUsed) * 100).toFixed(2))
+        : 0,
+      durationSec: Math.max(0, Math.floor((bar.time - simulation.position.openedAt) / 1000)),
+      exitReason: reason || signal?.reason || "manual_exit",
+      balanceAfter: Number(simulation.balance.toFixed(4))
+    };
+
+    closedTrades.push(trade);
+    if (trade.netPnl >= 0) simulation.wins += 1;
+    else simulation.losses += 1;
+    addMarker(autoMarkers, bar, "EXIT", {
+      color: trade.netPnl >= 0 ? "#14684c" : "#a12f2f",
+      direction: simulation.position.side === "LONG" ? "down" : "up",
+      price: exitPrice
+    });
+
+    simulation.position = null;
+    simulation.realizedPnl = Number((simulation.balance - initialCapital).toFixed(4));
+    return trade;
+  };
+
+  const openPosition = (side, signal) => {
+    const price = Number(signal.price || bar.close || 0);
+    const leverage = Number(signal.leverage || settings.inputs?.leverage || 1);
+    const budgetUsdt = Number(signal.order_budget_usdt || settings.inputs?.budgetUsdt || 0);
+    const notional = budgetUsdt * leverage;
+    const qty = price ? notional / price : 0;
+    const entryFee = notional * feeRate;
+
+    simulation.balance -= entryFee;
+    simulation.fees += entryFee;
+    simulation.position = {
+      side,
+      qty,
+      leverage,
+      marginUsed: budgetUsdt,
+      notional,
+      entryPrice: price,
+      openedAt: bar.time,
+      entryFee,
+      reason: signal.reason || `${side.toLowerCase()}_entry`
+    };
+
+    addMarker(autoMarkers, bar, side === "LONG" ? "LONG" : "SHORT", {
+      color: side === "LONG" ? "#14684c" : "#a12f2f",
+      direction: side === "LONG" ? "up" : "down",
+      price
+    });
+  };
+
+  signalsForBar.forEach((signal) => {
+    if (signal.action === "FLAT_EXIT") {
+      closePosition(signal.reason || "flat_exit", signal);
+      return;
+    }
+
+    const side = signal.action === "SHORT_ENTRY" ? "SHORT" : "LONG";
+
+    if (!simulation.position) {
+      openPosition(side, signal);
+      return;
+    }
+
+    if (simulation.position.side === side) {
+      addMarker(autoMarkers, bar, "HOLD", {
+        color: "#8d7a58",
+        direction: side === "LONG" ? "up" : "down",
+        price: signal.price || bar.close
+      });
+      return;
+    }
+
+    closePosition(`reverse_to_${side.toLowerCase()}`, signal);
+    openPosition(side, signal);
+  });
+}
+
+function summarizeSimulation(simulation, closedTrades, initialCapital) {
+  const finalEquity = Number(simulation.equity.toFixed(4));
+  const pnl = Number((finalEquity - initialCapital).toFixed(4));
+  const pnlPct = initialCapital ? Number(((pnl / initialCapital) * 100).toFixed(2)) : 0;
+  const winRate = closedTrades.length ? Number(((simulation.wins / closedTrades.length) * 100).toFixed(2)) : 0;
+
+  return {
+    initialCapital: Number(initialCapital.toFixed(2)),
+    finalEquity,
+    pnl,
+    pnlPct,
+    closedTrades: closedTrades.length,
+    wins: simulation.wins,
+    losses: simulation.losses,
+    winRate,
+    maxDrawdownPct: Number(simulation.maxDrawdownPct.toFixed(2)),
+    fees: Number(simulation.fees.toFixed(4))
   };
 }
 
@@ -221,19 +429,40 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
   const compiled = compileStrategy(source);
   const strategy = compiled.definition;
   const resolvedInputs = resolveInputs(strategy.inputs, settings.inputs || {});
-  const signals = [];
-  const linePlots = new Map();
-  const markers = [];
-  const diagnostics = [];
   const ta = buildTa();
-  const warmup = Number(settings.warmupBars || 80);
+  const warmupBars = Number(settings.warmupBars || 80);
+  const initialCapital = Number(settings.initialCapitalUsdt || 20);
+
+  const linePlots = new Map();
+  const histogramPlots = new Map();
+  const bandPlots = new Map();
+  const userMarkers = [];
+  const autoMarkers = [];
+  const diagnostics = [];
+  const signals = [];
+  const closedTrades = [];
+  const frames = [];
+
+  const simulation = {
+    balance: initialCapital,
+    realizedPnl: 0,
+    equity: initialCapital,
+    fees: 0,
+    wins: 0,
+    losses: 0,
+    peakEquity: initialCapital,
+    maxDrawdownPct: 0,
+    position: null
+  };
 
   for (let index = 0; index < bars.length; index += 1) {
     const localBars = bars.slice(0, index + 1);
     const currentBar = localBars[localBars.length - 1];
     const currentHtfBars = htfBars.filter((bar) => bar.openTime <= currentBar.openTime);
 
-    if (localBars.length < warmup || currentHtfBars.length < 20) continue;
+    if (localBars.length < warmupBars || currentHtfBars.length < 20) {
+      continue;
+    }
 
     const plotsForBar = [];
     const signalsForBar = [];
@@ -241,6 +470,7 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
     const highSeries = seriesFromBars(localBars, "high");
     const lowSeries = seriesFromBars(localBars, "low");
     const htfCloseSeries = seriesFromBars(currentHtfBars, "close");
+
     const cache = {
       rsi7: ta.rsi(closeSeries, 7),
       atr14: ta.atr(highSeries, lowSeries, closeSeries, 14),
@@ -251,7 +481,7 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
       symbol: settings.symbol,
       timeframe: settings.timeframe,
       htfTimeframe: settings.htfTimeframe,
-      strategy,
+      strategyMeta: strategy,
       input: resolvedInputs,
       ta,
       cache,
@@ -284,9 +514,10 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
         volume: () => seriesFromBars(currentHtfBars, "volume")
       },
       derived: {
-        htfTrend: currentHtfBars.length >= 2 && currentHtfBars[currentHtfBars.length - 1].close >= currentHtfBars[currentHtfBars.length - 2].close
-          ? "BULL"
-          : "BEAR"
+        htfTrend:
+          currentHtfBars.length >= 2 && currentHtfBars[currentHtfBars.length - 1].close >= currentHtfBars[currentHtfBars.length - 2].close
+            ? "BULL"
+            : "BEAR"
       }
     };
 
@@ -305,17 +536,40 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
     };
 
     const plotApi = {
-      line(name, value) {
-        plotsForBar.push({ kind: "line", name, value: Number(value || 0), time: currentBar.time });
+      line(name, value, options = {}) {
+        plotsForBar.push({
+          kind: "line",
+          name,
+          value: Number(value || 0),
+          time: currentBar.time,
+          pane: options.pane || "price",
+          color: options.color || null
+        });
+      },
+      histogram(name, value, options = {}) {
+        plotsForBar.push({
+          kind: "histogram",
+          name,
+          value: Number(value || 0),
+          time: currentBar.time,
+          pane: options.pane || "indicator",
+          color: options.color || null
+        });
+      },
+      band(name, upper, lower, options = {}) {
+        plotsForBar.push({
+          kind: "band",
+          name,
+          upper: Number(upper || 0),
+          lower: Number(lower || 0),
+          time: currentBar.time,
+          pane: options.pane || "indicator",
+          color: options.color || "rgba(26, 89, 83, 0.18)"
+        });
       },
       marker(condition, text, options = {}) {
         if (!condition) return;
-        markers.push({
-          time: currentBar.time,
-          text: text || "S",
-          color: options.color || (String(text || "").toUpperCase().includes("SELL") ? "#a12f2f" : "#14684c"),
-          direction: options.direction || (String(text || "").toUpperCase().includes("SELL") ? "down" : "up")
-        });
+        addMarker(userMarkers, currentBar, text || "MARK", options);
       }
     };
 
@@ -333,24 +587,92 @@ export function runStrategyOnHistory({ source, bars, htfBars, settings = {}, mac
     }
 
     plotsForBar.forEach((entry) => {
-      if (entry.kind !== "line") return;
-      if (!linePlots.has(entry.name)) linePlots.set(entry.name, []);
-      linePlots.get(entry.name).push({
-        value: Number(entry.value.toFixed(6)),
-        time: entry.time
-      });
+      if (entry.kind === "line") {
+        ensureLineStore(linePlots, entry.name, entry.pane, entry.color).points.push({
+          time: entry.time,
+          value: Number(entry.value.toFixed(6))
+        });
+      }
+
+      if (entry.kind === "histogram") {
+        ensureLineStore(histogramPlots, entry.name, entry.pane, entry.color).points.push({
+          time: entry.time,
+          value: Number(entry.value.toFixed(6))
+        });
+      }
+
+      if (entry.kind === "band") {
+        const band = ensureBandStore(bandPlots, entry.name, entry.pane, entry.color);
+        band.upper.push({
+          time: entry.time,
+          value: Number(entry.upper.toFixed(6))
+        });
+        band.lower.push({
+          time: entry.time,
+          value: Number(entry.lower.toFixed(6))
+        });
+      }
     });
 
-    signalsForBar.forEach((signal) => signals.push(signal));
+    signalsForBar.forEach((signal) => {
+      signals.push(signal);
+    });
+
+    simulateSignalsForBar({
+      signalsForBar,
+      bar: currentBar,
+      simulation,
+      closedTrades,
+      autoMarkers,
+      settings: {
+        symbol: settings.symbol,
+        initialCapitalUsdt: initialCapital,
+        inputs: resolvedInputs,
+        feeRate: settings.feeRate || 0.0004
+      }
+    });
+
+    const positionSnapshot = clonePosition(simulation.position, currentBar.close);
+    const unrealizedPnl = positionSnapshot.unrealizedPnl || 0;
+    simulation.equity = Number((simulation.balance + unrealizedPnl).toFixed(4));
+    simulation.peakEquity = Math.max(simulation.peakEquity, simulation.equity);
+    const drawdownPct = simulation.peakEquity
+      ? ((simulation.peakEquity - simulation.equity) / simulation.peakEquity) * 100
+      : 0;
+    simulation.maxDrawdownPct = Math.max(simulation.maxDrawdownPct, drawdownPct);
+
+    frames.push({
+      replayIndex: frames.length,
+      barIndex: index,
+      time: currentBar.time,
+      label: currentBar.label,
+      close: currentBar.close,
+      equity: Number(simulation.equity.toFixed(4)),
+      balance: Number(simulation.balance.toFixed(4)),
+      realizedPnl: Number((simulation.balance - initialCapital).toFixed(4)),
+      unrealizedPnl: Number(unrealizedPnl.toFixed(4)),
+      drawdownPct: Number(drawdownPct.toFixed(4)),
+      position: positionSnapshot,
+      lastSignal: signalsForBar.length ? signalsForBar[signalsForBar.length - 1] : null,
+      signals: signalsForBar.map((signal) => ({ ...signal })),
+      closedTradesCount: closedTrades.length
+    });
   }
+
+  const summary = summarizeSimulation(simulation, closedTrades, initialCapital);
 
   return {
     strategy,
     resolvedInputs,
     signals,
     latestSignal: signals.length ? signals[signals.length - 1] : null,
-    markers,
+    markers: [...userMarkers, ...autoMarkers],
     lines: Object.fromEntries(linePlots.entries()),
-    diagnostics
+    histograms: Object.fromEntries(histogramPlots.entries()),
+    bands: Object.fromEntries(bandPlots.entries()),
+    diagnostics,
+    trades: closedTrades,
+    frames,
+    summary
   };
 }

@@ -2,8 +2,8 @@ import { runStrategyOnHistory } from "./engine.js";
 
 const BINANCE_FUTURES_REST = "https://fapi.binance.com";
 const BINANCE_FUTURES_WS = "wss://fstream.binance.com/stream";
-const SETTINGS_KEY = "botxp-terminal-settings-v1";
-const EDITOR_KEY = "botxp-terminal-editor-v1";
+const SETTINGS_KEY = "botxp-terminal-settings-v2";
+const EDITOR_KEY = "botxp-terminal-editor-v2";
 
 const state = {
   settings: null,
@@ -16,12 +16,22 @@ const state = {
   editor: null,
   editorFallback: null,
   ws: null,
+  result: null,
+  replayIndex: 0,
+  replayTimer: null,
   lastSignal: null,
-  lastAutoSentNonce: null,
-  lastManualSentNonce: null
+  lastAutoSentNonce: null
 };
 
 const $ = (id) => document.getElementById(id);
+
+function usdt(value) {
+  return `${Number(value || 0).toFixed(2)} USDT`;
+}
+
+function pct(value) {
+  return `${Number(value || 0).toFixed(2)}%`;
+}
 
 function defaultSettings() {
   return {
@@ -33,7 +43,9 @@ function defaultSettings() {
     leverage: 3,
     budgetUsdt: 7,
     autoSend: false,
-    warmupBars: 80
+    warmupBars: 80,
+    initialCapitalUsdt: 20,
+    feeRate: 0.0004
   };
 }
 
@@ -45,14 +57,9 @@ function loadSettings() {
   }
 }
 
-function saveSettings() {
-  state.settings = collectSettingsFromForm();
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-  log("Configuração salva.");
-}
-
 function collectSettingsFromForm() {
   return {
+    ...state.settings,
     bridgeUrl: $("bridgeUrlInput").value.trim().replace(/\/$/, ""),
     passphrase: $("passphraseInput").value,
     symbol: $("symbolInput").value.trim().toUpperCase(),
@@ -60,9 +67,19 @@ function collectSettingsFromForm() {
     htfTimeframe: $("htfInput").value.trim(),
     leverage: Number($("leverageInput").value || 3),
     budgetUsdt: Number($("budgetInput").value || 7),
-    autoSend: $("autoSendInput").checked,
-    warmupBars: 80
+    autoSend: $("autoSendInput").checked
   };
+}
+
+function saveSettings() {
+  state.settings = collectSettingsFromForm();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  log("Configuracao salva.", {
+    bridgeUrl: state.settings.bridgeUrl,
+    symbol: state.settings.symbol,
+    timeframe: state.settings.timeframe,
+    htfTimeframe: state.settings.htfTimeframe
+  });
 }
 
 function hydrateForm(settings) {
@@ -79,8 +96,8 @@ function hydrateForm(settings) {
 
 function log(message, payload) {
   const stamp = new Date().toLocaleTimeString("pt-BR");
-  const line = `[${stamp}] ${message}${payload !== undefined ? `\n${JSON.stringify(payload, null, 2)}` : ""}\n`;
-  $("logOutput").textContent = line + $("logOutput").textContent;
+  const rendered = `[${stamp}] ${message}${payload !== undefined ? `\n${JSON.stringify(payload, null, 2)}` : ""}\n`;
+  $("logOutput").textContent = rendered + $("logOutput").textContent;
 }
 
 async function loadMonaco() {
@@ -106,7 +123,7 @@ async function loadMonaco() {
 
 async function initEditor() {
   const savedSource = localStorage.getItem(EDITOR_KEY);
-  const defaultSource = savedSource || await fetch("./examples/doge-mtf-scalper.js").then((res) => res.text());
+  const defaultSource = savedSource || await fetch("./examples/doge-mtf-scalper.js").then((response) => response.text());
 
   try {
     const monaco = await loadMonaco();
@@ -132,7 +149,7 @@ async function initEditor() {
     $("editor").replaceWith(textarea);
     textarea.id = "editor";
     state.editorFallback = textarea;
-    log("Monaco não carregou. Usando editor simples.", { error: error.message });
+    log("Monaco nao carregou. Usando editor simples.", { error: error.message });
   }
 }
 
@@ -166,13 +183,14 @@ function transformKlines(rows) {
 }
 
 async function fetchKlines(symbol, interval, limit) {
-  const url = `${BINANCE_FUTURES_REST}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}`;
+  const url =
+    `${BINANCE_FUTURES_REST}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}` +
+    `&interval=${encodeURIComponent(interval)}&limit=${limit}`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Falha ao buscar klines ${interval}: HTTP ${response.status}`);
   }
-  const rows = await response.json();
-  return transformKlines(rows);
+  return transformKlines(await response.json());
 }
 
 async function refreshBridgeContext() {
@@ -200,53 +218,120 @@ async function refreshBridgeContext() {
     state.policy = defaults.policy;
     $("bridgeDot").className = "dot offline";
     $("bridgeStatus").textContent = "Bridge offline";
-    log("Bridge não respondeu; seguindo com contexto local mínimo.", { error: error.message });
+    log("Bridge nao respondeu; usando contexto local minimo.", { error: error.message });
   }
 }
 
-function buildChartSeries(result) {
-  const categories = state.bars.map((bar) => bar.label);
-  const candleData = state.bars.map((bar) => [bar.open, bar.close, bar.low, bar.high]);
-  const lineNames = Object.keys(result.lines || {});
-  const linePalette = ["#ab4b2a", "#1a5953", "#6d4bb4", "#ad7c15"];
-  const lineSeries = lineNames.map((name, index) => {
-    const valueMap = new Map((result.lines[name] || []).map((point) => [point.time, point.value]));
-    return {
-      name,
+function pointsToVisibleSeries(points, visibleBars) {
+  const map = new Map((points || []).map((point) => [point.time, point.value]));
+  return visibleBars.map((bar) => (map.has(bar.time) ? map.get(bar.time) : null));
+}
+
+function buildChartSeries(frame) {
+  const visibleBars = state.bars.slice(0, frame.barIndex + 1);
+  const categories = visibleBars.map((bar) => bar.label);
+  const candleData = visibleBars.map((bar) => [bar.open, bar.close, bar.low, bar.high]);
+  const linePalette = ["#ab4b2a", "#1a5953", "#7d5a2b", "#3a67a3", "#6d4bb4"];
+
+  const priceSeries = [];
+  const indicatorSeries = [];
+
+  Object.values(state.result.lines || {}).forEach((line, index) => {
+    const target = line.pane === "indicator" ? indicatorSeries : priceSeries;
+    target.push({
+      name: line.name,
       type: "line",
-      data: state.bars.map((bar) => valueMap.has(bar.time) ? valueMap.get(bar.time) : null),
+      xAxisIndex: line.pane === "indicator" ? 1 : 0,
+      yAxisIndex: line.pane === "indicator" ? 1 : 0,
+      data: pointsToVisibleSeries(line.points, visibleBars),
       showSymbol: false,
       smooth: true,
       lineStyle: {
         width: 1.8,
-        color: linePalette[index % linePalette.length]
+        color: line.color || linePalette[index % linePalette.length]
       }
-    };
+    });
   });
 
-  const markerData = (result.markers || []).map((marker) => {
-    const bar = state.bars.find((entry) => entry.time === marker.time);
-    if (!bar) return null;
-    return {
-      name: marker.text,
-      coord: [bar.label, marker.direction === "down" ? bar.high * 1.004 : bar.low * 0.996],
-      value: marker.text,
-      itemStyle: { color: marker.color },
-      symbol: "triangle",
-      symbolRotate: marker.direction === "down" ? 180 : 0
-    };
-  }).filter(Boolean);
+  Object.values(state.result.histograms || {}).forEach((series, index) => {
+    indicatorSeries.push({
+      name: series.name,
+      type: "bar",
+      xAxisIndex: 1,
+      yAxisIndex: 1,
+      data: pointsToVisibleSeries(series.points, visibleBars),
+      barMaxWidth: 6,
+      itemStyle: {
+        color: series.color || linePalette[index % linePalette.length],
+        opacity: 0.6
+      }
+    });
+  });
 
-  return { categories, candleData, lineSeries, markerData };
+  Object.values(state.result.bands || {}).forEach((band, index) => {
+    const target = band.pane === "indicator" ? indicatorSeries : priceSeries;
+    const baseIndex = band.pane === "indicator" ? 1 : 0;
+    target.push({
+      name: `${band.name}-upper`,
+      type: "line",
+      xAxisIndex: baseIndex,
+      yAxisIndex: baseIndex,
+      data: pointsToVisibleSeries(band.upper, visibleBars),
+      showSymbol: false,
+      lineStyle: {
+        width: 1,
+        type: "dashed",
+        color: band.color || linePalette[index % linePalette.length]
+      }
+    });
+    target.push({
+      name: `${band.name}-lower`,
+      type: "line",
+      xAxisIndex: baseIndex,
+      yAxisIndex: baseIndex,
+      data: pointsToVisibleSeries(band.lower, visibleBars),
+      showSymbol: false,
+      lineStyle: {
+        width: 1,
+        type: "dashed",
+        color: band.color || linePalette[index % linePalette.length]
+      }
+    });
+  });
+
+  const markerData = (state.result.markers || [])
+    .filter((marker) => marker.time <= frame.time)
+    .map((marker) => {
+      const bar = visibleBars.find((entry) => entry.time === marker.time);
+      if (!bar) return null;
+      return {
+        name: marker.text,
+        coord: [bar.label, marker.price || bar.close],
+        value: marker.text,
+        itemStyle: { color: marker.color },
+        symbol: "triangle",
+        symbolRotate: marker.direction === "down" ? 180 : 0
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    categories,
+    candleData,
+    markerData,
+    priceSeries,
+    indicatorSeries
+  };
 }
 
-function renderChart(result) {
+function renderChart(frame) {
   if (!state.chart) {
     state.chart = echarts.init($("chart"));
     window.addEventListener("resize", () => state.chart?.resize());
   }
 
-  const { categories, candleData, lineSeries, markerData } = buildChartSeries(result);
+  const { categories, candleData, markerData, priceSeries, indicatorSeries } = buildChartSeries(frame);
+
   state.chart.setOption({
     animation: false,
     backgroundColor: "transparent",
@@ -257,25 +342,53 @@ function renderChart(result) {
     tooltip: {
       trigger: "axis"
     },
-    grid: {
-      left: 48,
-      right: 18,
-      top: 46,
-      bottom: 36
+    axisPointer: {
+      link: [{ xAxisIndex: [0, 1] }]
     },
-    xAxis: {
-      type: "category",
-      data: categories,
-      boundaryGap: true,
-      axisLine: { lineStyle: { color: "rgba(47, 38, 28, 0.15)" } },
-      axisLabel: { color: "#6d665d", hideOverlap: true }
-    },
-    yAxis: {
-      scale: true,
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: "rgba(47, 38, 28, 0.08)" } },
-      axisLabel: { color: "#6d665d" }
-    },
+    grid: [
+      { left: 48, right: 18, top: 46, height: "58%" },
+      { left: 48, right: 18, top: "72%", height: "16%" }
+    ],
+    xAxis: [
+      {
+        type: "category",
+        data: categories,
+        boundaryGap: true,
+        axisLine: { lineStyle: { color: "rgba(47, 38, 28, 0.15)" } },
+        axisLabel: { color: "#6d665d", hideOverlap: true }
+      },
+      {
+        type: "category",
+        gridIndex: 1,
+        data: categories,
+        boundaryGap: true,
+        axisLine: { lineStyle: { color: "rgba(47, 38, 28, 0.15)" } },
+        axisLabel: { color: "#6d665d", hideOverlap: true }
+      }
+    ],
+    yAxis: [
+      {
+        scale: true,
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: "rgba(47, 38, 28, 0.08)" } },
+        axisLabel: { color: "#6d665d" }
+      },
+      {
+        gridIndex: 1,
+        scale: true,
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: "rgba(47, 38, 28, 0.08)" } },
+        axisLabel: { color: "#6d665d" }
+      }
+    ],
+    dataZoom: [
+      {
+        type: "inside",
+        xAxisIndex: [0, 1],
+        startValue: Math.max(categories.length - 180, 0),
+        endValue: categories.length - 1
+      }
+    ],
     series: [
       {
         name: "DOGEUSDT",
@@ -293,43 +406,140 @@ function renderChart(result) {
           data: markerData
         }
       },
-      ...lineSeries
+      ...priceSeries,
+      ...indicatorSeries
     ]
   }, true);
 }
 
-function renderStatus(result) {
-  const lastBar = state.bars[state.bars.length - 1];
-  const lastSignal = result.latestSignal;
-  state.lastSignal = lastSignal;
-  $("lastBarTime").textContent = lastBar ? new Date(lastBar.openTime).toLocaleString("pt-BR") : "-";
-  $("lastSignalMeta").textContent = lastSignal ? `${lastSignal.action} @ ${lastSignal.price}` : "-";
-  $("lastPrice").textContent = lastBar ? lastBar.close.toFixed(6) : "0";
-  $("atrMeta").textContent = `ATR ${lastSignal ? Number(lastSignal.atr_pct || 0).toFixed(3) : "0.000"}%`;
-  $("signalCount").textContent = String(result.signals.length);
-  $("markerCount").textContent = `${result.markers.length} marcadores`;
-  $("strategyId").textContent = result.strategy.id || "-";
+function tradesUpToFrame(frame) {
+  return (state.result?.trades || []).filter((trade) => Number(trade.exitTime || 0) <= frame.time);
+}
+
+function renderPositionPanel(frame) {
+  const position = frame.position || {};
+  const lastSignal = frame.lastSignal;
+
+  $("positionSide").textContent = position.side || "FLAT";
+  $("positionQty").textContent = Number(position.qty || 0).toFixed(6);
+  $("positionEntry").textContent = Number(position.entryPrice || 0).toFixed(6);
+  $("positionLeverage").textContent = `${Number(position.leverage || 0).toFixed(2)}x`;
+  $("positionMargin").textContent = usdt(position.marginUsed || 0);
+  $("positionUnrealized").textContent = usdt(position.unrealizedPnl || 0);
+  $("balanceValue").textContent = usdt(frame.balance || 0);
+  $("drawdownValue").textContent = pct(frame.drawdownPct || 0);
   $("latestAction").textContent = lastSignal?.action || "-";
   $("latestNonce").textContent = lastSignal?.nonce || "-";
   $("latestReason").textContent = lastSignal?.reason || "-";
   $("latestHtfTrend").textContent = lastSignal?.htf_trend || "-";
   $("latestRsi").textContent = lastSignal ? Number(lastSignal.rsi || 0).toFixed(2) : "0";
   $("latestAtrPct").textContent = lastSignal ? `${Number(lastSignal.atr_pct || 0).toFixed(3)}%` : "0%";
-  $("chartMeta").textContent = `${state.bars.length} candles locais, ${state.htfBars.length} candles HTF`;
+}
+
+function renderTradesTable(frame) {
+  const trades = tradesUpToFrame(frame).slice(-12).reverse();
+  $("tradesTable").innerHTML = trades.length
+    ? trades.map((trade) => `
+        <tr>
+          <td>${trade.tradeId}</td>
+          <td>${trade.direction}</td>
+          <td>${new Date(trade.entryTime).toLocaleString("pt-BR")}</td>
+          <td>${new Date(trade.exitTime).toLocaleString("pt-BR")}</td>
+          <td>${Number(trade.qty || 0).toFixed(4)}</td>
+          <td class="${Number(trade.netPnl || 0) >= 0 ? "good" : "bad"}">${Number(trade.netPnl || 0).toFixed(4)}</td>
+          <td>${trade.exitReason || "-"}</td>
+        </tr>
+      `).join("")
+    : '<tr><td colspan="7">Nenhum trade fechado ate este frame.</td></tr>';
+}
+
+function renderSignalPayload(frame) {
+  $("signalPayloadView").textContent = frame.lastSignal
+    ? JSON.stringify(frame.lastSignal, null, 2)
+    : "Nenhum sinal neste frame.";
+}
+
+function renderReplayControls() {
+  const total = state.result?.frames?.length || 0;
+  $("replaySlider").max = Math.max(total - 1, 0);
+  $("replaySlider").value = String(state.replayIndex);
+  $("replayLabel").textContent = total ? `${state.replayIndex + 1} / ${total}` : "0 / 0";
+}
+
+function renderMetrics(frame) {
+  const summary = state.result.summary;
+  const lastBar = state.bars[frame.barIndex];
+  const closedTrades = tradesUpToFrame(frame);
+  const wins = closedTrades.filter((trade) => Number(trade.netPnl || 0) >= 0).length;
+  const winRate = closedTrades.length ? (wins / closedTrades.length) * 100 : 0;
+
+  state.lastSignal = frame.lastSignal || state.lastSignal;
+  $("lastBarTime").textContent = lastBar ? new Date(lastBar.openTime).toLocaleString("pt-BR") : "-";
+  $("lastSignalMeta").textContent = frame.lastSignal ? `${frame.lastSignal.action} @ ${frame.lastSignal.price}` : "-";
   $("policyMode").textContent = state.policy.riskMode || "NEUTRAL";
   $("policyAllowed").textContent = `Allowed ${state.policy.allowedSide || "BOTH"}`;
   $("macroRegime").textContent = state.macro.macroRegime || "UNKNOWN";
   $("macroStress").textContent = `Stress ${Number(state.macro.macroStressScore || 0).toFixed(4)}`;
+  $("equityValue").textContent = usdt(frame.equity || 0);
+  $("backtestPnl").textContent = `PnL ${pct(((frame.equity - summary.initialCapital) / summary.initialCapital) * 100 || 0)}`;
+  $("closedTradesCount").textContent = String(closedTrades.length);
+  $("winRateMeta").textContent = `Win rate ${pct(winRate)}`;
+  $("lastPrice").textContent = lastBar ? Number(lastBar.close || 0).toFixed(6) : "0";
+  $("atrMeta").textContent = frame.lastSignal ? `ATR ${Number(frame.lastSignal.atr_pct || 0).toFixed(3)}%` : "ATR 0.000%";
+  $("signalCount").textContent = String(state.result.signals.length);
+  $("markerCount").textContent = `${state.result.markers.length} marcadores`;
+  $("chartMeta").textContent = `${state.bars.length} candles, ${state.result.trades.length} trades, DD max ${pct(summary.maxDrawdownPct || 0)}`;
+  $("strategyId").textContent = state.result.strategy.id || "-";
+  $("currentReplayBar").textContent = frame.label || "-";
+  $("currentFrameSignal").textContent = frame.lastSignal ? frame.lastSignal.action : "sem sinal";
+}
+
+function renderFrame(index) {
+  if (!state.result?.frames?.length) return;
+  state.replayIndex = Math.max(0, Math.min(index, state.result.frames.length - 1));
+  const frame = state.result.frames[state.replayIndex];
+  renderReplayControls();
+  renderChart(frame);
+  renderMetrics(frame);
+  renderPositionPanel(frame);
+  renderTradesTable(frame);
+  renderSignalPayload(frame);
+}
+
+function stopReplay() {
+  if (state.replayTimer) {
+    clearInterval(state.replayTimer);
+    state.replayTimer = null;
+  }
+  $("replayPlayBtn").textContent = "Play";
+}
+
+function playReplay() {
+  if (!state.result?.frames?.length) return;
+  if (state.replayTimer) {
+    stopReplay();
+    return;
+  }
+
+  const speed = Number($("replaySpeedSelect").value || 700);
+  $("replayPlayBtn").textContent = "Pause";
+  state.replayTimer = setInterval(() => {
+    if (state.replayIndex >= state.result.frames.length - 1) {
+      stopReplay();
+      return;
+    }
+    renderFrame(state.replayIndex + 1);
+  }, speed);
 }
 
 async function runStrategy(trigger = "manual") {
   if (!state.bars.length || !state.htfBars.length) {
-    log("Ainda não há dados suficientes para rodar a estratégia.");
+    log("Ainda nao ha dados suficientes para rodar a estrategia.");
     return;
   }
 
   try {
-    const result = runStrategyOnHistory({
+    state.result = runStrategyOnHistory({
       source: getEditorValue(),
       bars: state.bars,
       htfBars: state.htfBars,
@@ -340,6 +550,8 @@ async function runStrategy(trigger = "manual") {
         timeframe: state.settings.timeframe,
         htfTimeframe: state.settings.htfTimeframe,
         warmupBars: state.settings.warmupBars,
+        initialCapitalUsdt: state.settings.initialCapitalUsdt,
+        feeRate: state.settings.feeRate,
         inputs: {
           leverage: state.settings.leverage,
           budgetUsdt: state.settings.budgetUsdt
@@ -347,19 +559,26 @@ async function runStrategy(trigger = "manual") {
       }
     });
 
-    renderChart(result);
-    renderStatus(result);
-    if (trigger === "live" && state.settings.autoSend && result.latestSignal && result.latestSignal.nonce !== state.lastAutoSentNonce) {
-      await sendSignal(result.latestSignal, true);
+    stopReplay();
+    renderFrame(state.result.frames.length - 1);
+    log("Backtest visual recalculado.", state.result.summary);
+
+    if (
+      trigger === "live" &&
+      state.settings.autoSend &&
+      state.result.latestSignal &&
+      state.result.latestSignal.nonce !== state.lastAutoSentNonce
+    ) {
+      await sendSignal(state.result.latestSignal, true);
     }
   } catch (error) {
-    log("Falha ao rodar estratégia.", { error: error.message });
+    log("Falha ao rodar estrategia.", { error: error.message });
   }
 }
 
-async function sendSignal(signal = state.lastSignal, isAuto = false) {
+async function sendSignal(signal = state.result?.frames?.[state.replayIndex]?.lastSignal, isAuto = false) {
   if (!signal) {
-    log("Nenhum sinal disponível para envio.");
+    log("Nenhum sinal disponivel para envio.");
     return;
   }
 
@@ -383,23 +602,26 @@ async function sendSignal(signal = state.lastSignal, isAuto = false) {
 
   const json = await response.json().catch(() => ({}));
   $("lastSendStatus").textContent = `${response.status} ${json.reason || (json.accepted ? "accepted" : "response")}`;
-  if (response.ok) {
-    if (isAuto) state.lastAutoSentNonce = signal.nonce;
-    else state.lastManualSentNonce = signal.nonce;
+
+  if (response.ok && isAuto) {
+    state.lastAutoSentNonce = signal.nonce;
   }
-  log(isAuto ? "Auto-envio concluído." : "Envio manual concluído.", json);
+
+  log(isAuto ? "Auto-envio concluido." : "Envio manual concluido.", json);
 }
 
 async function loadMarketData() {
   const { symbol, timeframe, htfTimeframe } = state.settings;
   $("marketMeta").textContent = `${symbol} / ${timeframe} + ${htfTimeframe}`;
+
   const [bars, htfBars] = await Promise.all([
     fetchKlines(symbol, timeframe, 500),
     fetchKlines(symbol, htfTimeframe, 300)
   ]);
+
   state.bars = bars;
   state.htfBars = htfBars;
-  log("Dados históricos carregados.", {
+  log("Dados historicos carregados.", {
     symbol,
     timeframe,
     htfTimeframe,
@@ -414,9 +636,11 @@ function connectStreams() {
   }
 
   const symbol = state.settings.symbol.toLowerCase();
-  const url = `${BINANCE_FUTURES_WS}?streams=${symbol}@kline_${state.settings.timeframe}/${symbol}@kline_${state.settings.htfTimeframe}`;
-  state.ws = new WebSocket(url);
+  const url =
+    `${BINANCE_FUTURES_WS}?streams=${symbol}@kline_${state.settings.timeframe}` +
+    `/${symbol}@kline_${state.settings.htfTimeframe}`;
 
+  state.ws = new WebSocket(url);
   state.ws.onopen = () => log("WebSocket de mercado conectado.");
   state.ws.onerror = () => log("WebSocket de mercado encontrou erro.");
   state.ws.onclose = () => log("WebSocket de mercado desconectado.");
@@ -431,11 +655,12 @@ function connectStreams() {
       const isHtf = stream.endsWith(`kline_${state.settings.htfTimeframe}`);
       if (!isPrimary && !isHtf) return;
 
-      log("Candle fechado detectado; recarregando série.", {
+      log("Candle fechado detectado; atualizando series.", {
         stream,
         close: kline.c,
         closeTime: kline.T
       });
+
       await loadMarketData();
       await refreshBridgeContext();
       await runStrategy("live");
@@ -476,7 +701,30 @@ $("runStrategyBtn").addEventListener("click", async () => {
   await runStrategy("manual");
 });
 
-$("sendSignalBtn").addEventListener("click", () => sendSignal(state.lastSignal, false));
+$("sendSignalBtn").addEventListener("click", () => sendSignal());
+$("replaySlider").addEventListener("input", (event) => {
+  stopReplay();
+  renderFrame(Number(event.target.value || 0));
+});
+$("replayPlayBtn").addEventListener("click", playReplay);
+$("replayPrevBtn").addEventListener("click", () => {
+  stopReplay();
+  renderFrame(state.replayIndex - 1);
+});
+$("replayNextBtn").addEventListener("click", () => {
+  stopReplay();
+  renderFrame(state.replayIndex + 1);
+});
+$("replayStartBtn").addEventListener("click", () => {
+  stopReplay();
+  renderFrame(0);
+});
+$("replayEndBtn").addEventListener("click", () => {
+  stopReplay();
+  if (state.result?.frames?.length) {
+    renderFrame(state.result.frames.length - 1);
+  }
+});
 
 bootstrap().catch((error) => {
   log("Falha no bootstrap do terminal.", { error: error.message });
